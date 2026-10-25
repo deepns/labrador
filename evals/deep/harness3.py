@@ -1,4 +1,6 @@
-import sys, random
+import random
+import sys
+
 src = open(sys.argv[4]).read().split("BASE = {}")[0]
 exec(src)
 P = {"mode": "and", "kw_weight": 1.0}
@@ -32,10 +34,10 @@ print("Per-category proposed_no_ocr:", {c: round(mrr([R['proposed_no_ocr'][i] fo
 print("\nStill not top-1 under proposed:")
 for i, r in enumerate(rows):
     if R["proposed"][i] != 1:
-        print(f"  rank={R['proposed'][i]} base={R['baseline'][i]} [{r.get("category", "-")}{' HARD' if r.get('hard') else ''}] {r['query']!r} -> {r['expect']}{' p'+str(r['page']) if r.get('page') else ''}")
+        print(f"  rank={R['proposed'][i]} base={R['baseline'][i]} [{r.get('category', '-')}{' HARD' if r.get('hard') else ''}] {r['query']!r} -> {r['expect']}{' p'+str(r['page']) if r.get('page') else ''}")
 print("\nRegressions vs baseline:")
 for i, r in enumerate(rows):
     if rr(R["proposed"][i]) < rr(R["baseline"][i]):
-        print(f"  {R['baseline'][i]} -> {R['proposed'][i]}  [{r.get("category", "-")}] {r['query']!r}")
+        print(f"  {R['baseline'][i]} -> {R['proposed'][i]}  [{r.get('category', '-')}] {r['query']!r}")
 print("\nkw hits under AND per query (nonzero):", sum(bool(keyword(r['query'], mode='and')) for r in rows), "of", N)
 print("text-exact AND hits:", [(r['query'], len(keyword(r['query'], mode='and'))) for r in rows if r.get("category", "-")=='text-exact'])

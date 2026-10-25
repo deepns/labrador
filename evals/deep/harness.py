@@ -14,7 +14,7 @@ import numpy as np
 
 from labrador.config import Settings
 from labrador.embedder import load_embedder
-from labrador.search import KIND_FILTERS, RRF_K, search
+from labrador.search import RRF_K, search
 from labrador.store import Store
 
 idx, qfile, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])

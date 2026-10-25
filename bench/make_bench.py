@@ -307,7 +307,7 @@ def build_pdfs(root: Path):
             for led in range(3):
                 rd.ellipse([x + 100 + led * 8, yy + 6, x + 105 + led * 8, yy + 11],
                            fill=[(60, 220, 90), (60, 160, 255), (60, 220, 90)][led])
-    h = img(c, racks, 1 * inch, 4.2 * inch, 6.5 * inch)
+    img(c, racks, 1 * inch, 4.2 * inch, 6.5 * inch)
     para(c, ["Our second data centre opened in Frankfurt in June."], 1 * inch, 3.9 * inch, size=10)
     c.showPage()
     heading(c, "Risks")

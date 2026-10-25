@@ -10,7 +10,6 @@ the model recognises real photos far better than these drawn ones.
 
 from __future__ import annotations
 
-import math
 import sys
 from pathlib import Path
 

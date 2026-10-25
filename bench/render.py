@@ -502,7 +502,7 @@ def scanned_page(lines, seed, title_size=34, size=30):
     im = Image.new("RGB", (1275, 1650), (246, 244, 238))
     d = ImageDraw.Draw(im)
     y = 130
-    for i, ln in enumerate(lines):
+    for ln in lines:
         bold = isinstance(ln, tuple)
         txt = ln[0] if bold else ln
         d.text((120, y), txt, fill=(25, 25, 25), font=font(title_size if bold else size, bold, "serif"))

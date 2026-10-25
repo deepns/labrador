@@ -203,10 +203,12 @@ for g in top_grid:
     ex = [rs[i] for i, r in enumerate(rows) if r.get("category", "-") == "text-exact"]
     print(f"  MRR {mrr(rs):.3f} exact {mrr(ex):.3f} h@1 {sum(r == 1 for r in rs)/N:.2f}  {grid[g]}")
 import statistics as st
+
 print(f"\nCV (40 folds): selected-config test MRR {st.mean(c['test_mrr'] for c in cv):.3f} "
       f"(sd {st.stdev(c['test_mrr'] for c in cv):.3f}); baseline {st.mean(c['test_base'] for c in cv):.3f}; "
       f"dense_only {st.mean(c['test_dense'] for c in cv):.3f}")
 from collections import Counter
+
 print("Selected configs:", Counter(json.dumps(c["cfg"], sort_keys=True) for c in cv).most_common(5))
 print("\nPer-category MRR")
 show = ["baseline", "dense_only", "stop+phrase", "stop+phrase_and", "stop+phrase_top10"]

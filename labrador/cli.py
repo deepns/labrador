@@ -105,6 +105,7 @@ def cmd_stats(a):
 
 def cmd_serve(a):
     import uvicorn
+
     from .web import create_app
     store, emb, s = _open(a)
     print(f"Open http://{a.host}:{a.port}")
