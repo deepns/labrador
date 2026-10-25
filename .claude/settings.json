@@ -1,4 +1,22 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(uv run --extra dev pytest)",
+      "Bash(uv run --extra dev pytest *)",
+      "Bash(uv run ruff check *)",
+      "Bash(uv run --extra dev ruff check *)",
+      "Bash(uv run pre-commit run *)",
+      "Bash(uv run labrador *)",
+      "Bash(uv run python scripts/check_model.py)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)"
+    ],
+    "deny": [
+      "Edit(~/.labrador/**)"
+    ]
+  },
   "hooks": {
     "PreToolUse": [
       {
