@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>labrador</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6a66; --line: #e4e2dc;
+    --accent: #2f5d50; --accent-ink: #ffffff; --chip: #eceae4; --hl: #fff1a8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9a9890; --line: #2f2f2c;
+            --accent: #7fb8a4; --accent-ink: #10201b; --chip: #2a2a27; --hl: #5a4c12; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; }
+  header { position: sticky; top: 0; background: var(--bg); padding: 20px 24px 12px; border-bottom: 1px solid var(--line); z-index: 2; }
+  .row { display: flex; gap: 10px; align-items: center; max-width: 1200px; margin: 0 auto; }
+  h1 { font-size: 15px; font-weight: 600; margin: 0 14px 0 0; letter-spacing: .02em; white-space: nowrap; }
+  input[type=search] { flex: 1; font-size: 17px; padding: 11px 14px; border-radius: 10px; border: 1px solid var(--line);
+         background: var(--panel); color: var(--ink); outline: none; }
+  input[type=search]:focus { border-color: var(--accent); }
+  .chips { display: flex; gap: 6px; max-width: 1200px; margin: 10px auto 0; flex-wrap: wrap; }
+  .chip { border: 0; background: var(--chip); color: var(--ink); padding: 5px 12px; border-radius: 99px; font-size: 13px; cursor: pointer; }
+  .chip[aria-pressed=true] { background: var(--accent); color: var(--accent-ink); }
+  .stat { margin-left: auto; color: var(--muted); font-size: 12px; }
+  main { max-width: 1200px; margin: 0 auto; padding: 18px 24px 60px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .thumb { background: var(--chip); aspect-ratio: 4/3; display: flex; align-items: center; justify-content: center; cursor: zoom-in; }
+  .thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+  .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .meta { display: flex; gap: 6px; align-items: center; font-size: 12px; color: var(--muted); }
+  .kind { background: var(--chip); color: var(--ink); border-radius: 6px; padding: 1px 7px; font-size: 11px; font-weight: 600; }
+  .name { font-weight: 600; font-size: 14px; word-break: break-all; }
+  .snip { font-size: 13px; color: var(--ink); opacity: .85; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-line; }
+  mark { background: var(--hl); color: inherit; border-radius: 2px; }
+  .actions { margin-top: auto; display: flex; gap: 12px; font-size: 12px; }
+  .actions a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  .empty { color: var(--muted); text-align: center; padding: 60px 0; }
+  dialog { border: 0; padding: 0; background: transparent; max-width: 92vw; max-height: 92vh; }
+  dialog::backdrop { background: rgba(0,0,0,.75); }
+  dialog img { max-width: 92vw; max-height: 92vh; display: block; border-radius: 8px; }
+  @media (max-width: 600px) { header, main { padding-left: 16px; padding-right: 16px; } h1 { display: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <h1>labrador</h1>
+    <input id="q" type="search" placeholder="Describe what you're looking for…" autofocus autocomplete="off">
+  </div>
+  <div class="chips" id="chips">
+    <button class="chip" data-only="" aria-pressed="true">All</button>
+    <button class="chip" data-only="visual" aria-pressed="false">Pictures &amp; pages</button>
+    <button class="chip" data-only="text" aria-pressed="false">Documents</button>
+    <button class="chip" data-only="pdf" aria-pressed="false">PDFs</button>
+    <button class="chip" data-only="image" aria-pressed="false">Images</button>
+    <span class="stat" id="stat"></span>
+  </div>
+</header>
+<main><div id="results" class="grid"></div><div id="empty" class="empty">Type a description: “a dog on the beach”, “the clause about late fees”, “bar chart of quarterly revenue”.</div></main>
+<dialog id="lb" onclick="this.close()"><img id="lbimg" alt=""></dialog>
+<script>
+const LABEL = { text: "text", image: "image", image_ocr: "text in image", pdf_text: "PDF text", pdf_page: "PDF page",
+                pdf_ocr: "scanned page", pdf_image: "embedded image", pdf_image_ocr: "text in embedded image" };
+let only = "", timer = null, seq = 0;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function highlight(text, q) {
+  const words = q.toLowerCase().match(/[\p{L}\p{N}]{3,}/gu) || [];
+  let html = esc(text.slice(0, 700));
+  for (const w of words) html = html.replace(new RegExp(`(${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi"), "<mark>$1</mark>");
+  return html;
+}
+async function run() {
+  const q = $("q").value.trim(), my = ++seq;
+  if (!q) { $("results").innerHTML = ""; $("empty").style.display = ""; return; }
+  const t0 = performance.now();
+  const r = await fetch(`/api/search?k=24&q=${encodeURIComponent(q)}&only=${only}`);
+  const hits = await r.json();
+  if (my !== seq) return;
+  $("stat").textContent = `${hits.length} results · ${Math.round(performance.now() - t0)} ms`;
+  $("empty").style.display = hits.length ? "none" : "";
+  if (!hits.length) $("empty").textContent = "Nothing found.";
+  $("results").innerHTML = hits.map(h => {
+    const name = h.path.split("/").pop();
+    const page = h.page ? ` · page ${h.page}` : "";
+    const open = `/file/${h.file_id}${h.page ? "#page=" + h.page : ""}`;
+    const thumb = h.media ? `<div class="thumb" data-src="/media/${h.media}"><img loading="lazy" src="/media/${h.media}" alt=""></div>` : "";
+    const via = h.matched.filter(k => k !== h.kind).map(k => LABEL[k] || k);
+    return `<div class="card">${thumb}<div class="body">
+      <div class="meta"><span class="kind">${LABEL[h.kind] || h.kind}</span><span>${page.slice(3)}</span>
+        <span style="margin-left:auto" title="cosine similarity">${h.cosine.toFixed(3)}</span></div>
+      <div class="name" title="${esc(h.path)}">${esc(name)}</div>
+      ${h.snippet ? `<div class="snip">${highlight(h.snippet, q)}</div>` : ""}
+      ${via.length ? `<div class="meta">also matched: ${via.join(", ")}</div>` : ""}
+      <div class="actions"><a href="${open}" target="_blank">Open${page}</a>
+        <a onclick="reveal(${h.file_id})">Show in Finder</a></div></div></div>`;
+  }).join("");
+}
+function reveal(id) { fetch(`/reveal/${id}`, { method: "POST" }); }
+$("q").addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(run, 250); });
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if (!b) return;
+  only = b.dataset.only;
+  document.querySelectorAll(".chip").forEach(c => c.setAttribute("aria-pressed", c === b));
+  run();
+});
+$("results").addEventListener("click", e => {
+  const t = e.target.closest(".thumb"); if (!t) return;
+  $("lbimg").src = t.dataset.src; $("lb").showModal();
+});
+fetch("/api/stats").then(r => r.json()).then(s => {
+  const n = Object.values(s.files || {}).reduce((a, b) => a + b, 0);
+  const u = Object.values(s.units || {}).reduce((a, b) => a + b, 0);
+  $("stat").textContent = `${n} files · ${u} vectors`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Environments and tool caches (uv.lock IS committed)
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local index data (normally under ~/.labrador, but guard against LABRADOR_HOME=.)
+.labrador/
+*.sqlite
+*.sqlite3
+*.db
+
+# Claude Code: per-user settings stay local; .claude/settings.json is shared
+.claude/settings.local.json
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Generated eval output: kept on disk for reference, never versioned.
+# Write new outputs to evals/out/ (or name them results-*.json / analysis-*.txt).
+evals/out/
+evals/**/results-*.json
+evals/**/analysis-*.txt
+
+# Generated benchmark (rebuild: uv run python bench/make_bench.py bench/data)
+bench/data/

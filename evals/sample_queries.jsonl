@@ -1,0 +1,12 @@
+{"query": "how do pods talk to each other across nodes", "expect": "kubernetes-networking"}
+{"query": "dessert made with overripe fruit", "expect": "banana-bread"}
+{"query": "temples and gardens to visit in Japan", "expect": "kyoto-trip-notes"}
+{"query": "what did we decide about hiring for the retrieval team", "expect": "q3-planning-meeting"}
+{"query": "how much did I spend at the coffee shop", "expect": "IMG_2041"}
+{"query": "upstream connect timeout on the orders gateway", "expect": "Screenshot 2026-09-12"}
+{"query": "evening sky with the sun setting behind mountains", "expect": "wallpaper"}
+{"query": "bar chart of revenue growing each quarter", "expect": "chart1"}
+{"query": "are dogs allowed in my apartment", "expect": "scan0007"}
+{"query": "pie chart of market share by region", "expect": "annual-report-2026", "page": 2}
+{"query": "when does the headquarters lease expire", "expect": "annual-report-2026", "page": 3}
+{"query": "what to do when the pager goes off", "expect": "oncall-handbook"}
