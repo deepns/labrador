@@ -121,4 +121,3 @@ def search(store: Store, emb: Embedder, query: str, k: int = 10, only: str | Non
             if m:
                 h.media, h.media_unit = m["media"], m["id"]
     return hits
-
