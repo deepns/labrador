@@ -10,7 +10,7 @@ labrador is a learning-sized (~1,200 lines) local multimodal search tool built o
 
 ## Testing
 
-- **Plumbing** changes: `uv run --extra dev pytest -q` (single test: append `tests/test_pipeline.py::<name>`). Tests and `--backend fake` use a hashing embedder, so they need no model download.
+- **Plumbing** changes: `uv run --extra dev pytest -q` (single test: append `tests/test_pipeline.py::<name>`). Tests and `--backend fake` use a hashing embedder, so they need no model download. The OCR test is skipped without an OCR backend: on a Mac add `--extra mac`, and never `uv sync` with fewer extras than you use, since sync uninstalls the rest.
 - **Ranking-quality** changes: the fake embedder says nothing about quality. Index the benchmark with the real model and compare `labrador eval bench/data/queries.jsonl --out <file>.json` before and after. Run `uv run python scripts/check_model.py` first on a new machine or after touching `embedder.py`.
 - **Eval output** (`--out` files, harness results, analysis dumps) goes in `evals/out/`, which is gitignored. Commit the harness scripts and the written-up `REPORT.md`, never the raw results.
 - **No machine-specific paths** in committed files: no `/Users/<name>`, `~/Downloads`, real index folder names (a folder name plus its 10-hex hash) or links to gitignored output. Use the documented conventions (`bench/data/`, `~/labrador-sample`, `~/.labrador/indexes/<folder>-<hash>`, `evals/out/`).
