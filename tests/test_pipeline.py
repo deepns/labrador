@@ -14,7 +14,7 @@ from labrador.config import Settings
 from labrador.embedder import load_embedder
 from labrador.extractors import chunk_text
 from labrador.indexer import Indexer
-from labrador.search import search
+from labrador.search import keywords, search
 from labrador.store import Store
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +46,16 @@ def test_index_search_incremental(tmp_path):
     assert ix.run(verbose=False)["removed"] == 1
     kinds = store.stats()["units"]
     assert "pdf_page" in kinds and "image" in kinds
+
+
+def test_question_keywords_match(tmp_path):
+    _, store, ix = _index_sample(tmp_path)
+    ix.run(verbose=False)
+    q = "what's in my banana bread?"
+    assert keywords(q) == "banana bread"
+    assert store.keyword(q) == []                              # "what", "my" are in no unit
+    hit = store.units(store.keyword(keywords(q))[:1])
+    assert "banana-bread" in next(iter(hit.values()))["path"]
 
 
 # The screenshot's words exist only as OCR text: without a backend the fake embedder's

@@ -8,7 +8,8 @@
    unit by how much it stands out among its peers.
 4. Keyword scores from SQLite FTS5 (BM25) catch exact strings: invoice numbers, error
    codes, names, which no embedding holds exactly. Only units containing every query word
-   match, so long questions are ranked by the dense scores alone.
+   match, so the keyword side gets the question minus its filler words ("what's my
+   passport number" -> "passport number"); the dense side still embeds the whole question.
 5. Reciprocal Rank Fusion of the dense and keyword rankings.
 6. Collapse units into results (a photo + its OCR text, a PDF page's picture + its text)
    and cap results per file for diversity.
@@ -16,6 +17,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 
 import numpy as np
@@ -53,11 +55,31 @@ KIND_FILTERS = {
 }
 
 
+# Question and filler words that carry no keyword signal. Store.keyword ANDs every word,
+# so one of these in the query is enough to make the keyword side match nothing.
+STOPWORDS = set("""
+a an the and or but if of to in on at by for with from into about as is are was were be been
+being am do does did have has had can could will would should may might must shall
+what whats which who whom whose where when why how
+i me my mine we us our ours you your yours he him his she her hers it its they them their
+this that these those there here any some all
+""".split())
+
+
+def keywords(query: str) -> str:
+    """The query with filler words removed, for the keyword (BM25) side of the search."""
+    words = re.findall(r"\w+", query.lower())
+    return " ".join(w for w in words if len(w) > 1 and w not in STOPWORDS)
+
+
 def search(store: Store, emb: Embedder, query: str, k: int = 10, only: str | None = None,
-           max_per_file: int = 2, keyword_weight: float = 1.0, dense_pool: int = 300) -> list[Hit]:
+           max_per_file: int = 2, keyword_weight: float = 1.0, dense_pool: int = 300,
+           keyword_query: str | None = None) -> list[Hit]:
     ids, mods, M = store.matrix()
     if len(ids) == 0:
         return []
+    if keyword_query is None:
+        keyword_query = keywords(query)
     qv = emb.embed_query(query)
     cos = M @ qv
 
@@ -76,7 +98,7 @@ def search(store: Store, emb: Embedder, query: str, k: int = 10, only: str | Non
     fused: dict[int, float] = {}
     for r, i in enumerate(order):
         fused[int(ids[i])] = 1.0 / (RRF_K + r + 1)
-    for r, uid in enumerate(store.keyword(query)):
+    for r, uid in enumerate(store.keyword(keyword_query)):
         fused[uid] = fused.get(uid, 0.0) + keyword_weight / (RRF_K + r + 1)
 
     cos_by_id = dict(zip(ids.tolist(), cos.tolist()))

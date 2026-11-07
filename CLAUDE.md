@@ -8,6 +8,10 @@ labrador is a learning-sized (~1,200 lines) local multimodal search tool built o
 
 `extractors` → *units* → `embedder` → `store` (SQLite: vectors + FTS5) ← `search` ← `cli` / `web`. Each module's docstring explains its stage; read it before changing that stage.
 
+## Git
+
+- **Never commit to `main`.** Create a branch, commit there, and open a PR against `main`. The `no-commit-to-branch` pre-commit hook rejects commits on `main`.
+
 ## Testing
 
 - **Plumbing** changes: `uv run --extra dev pytest -q` (single test: append `tests/test_pipeline.py::<name>`). Tests and `--backend fake` use a hashing embedder, so they need no model download. The OCR test is skipped without an OCR backend: on a Mac add `--extra mac`, and never `uv sync` with fewer extras than you use, since sync uninstalls the rest.
