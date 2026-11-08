@@ -38,9 +38,20 @@ class Store:
         self.db.execute("PRAGMA journal_mode=WAL")
         self.db.execute("PRAGMA foreign_keys=ON")
         self.db.executescript(SCHEMA)
+        self._restrict()
         self.lock = threading.RLock()
         self._cache = None
         self._cache_ver = None
+
+    def _restrict(self):
+        """The index holds the text of private files: owner-only, re-applied on every open."""
+        self.dir.chmod(0o700)
+        self.media_dir.chmod(0o700)
+        # SQLite creates later -wal/-shm files with the db file's mode, so chmod-ing what exists is enough.
+        for suffix in ("", "-wal", "-shm"):
+            f = self.dir / f"index.db{suffix}"
+            if f.exists():
+                f.chmod(0o600)
 
     # ------------------------------------------------------------ meta
     def get_meta(self, key, default=None):

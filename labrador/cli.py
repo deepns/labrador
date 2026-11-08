@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import shutil
 import sys
@@ -103,13 +104,35 @@ def cmd_stats(a):
     print(json.dumps(Store(_resolve_index(a)).stats(), indent=2))
 
 
+def _is_loopback(host: str) -> bool:
+    try:
+        return host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _serve_hosts(a) -> set[str]:
+    """Host headers the web UI accepts; refuses a non-loopback --host unless --allow-lan."""
+    hosts = {"127.0.0.1", "localhost"}
+    if _is_loopback(a.host):
+        return hosts | {a.host}   # browsers send the literal host, e.g. ::1 or 127.0.0.2
+    if not a.allow_lan:
+        sys.exit(f"Refusing to serve on {a.host}: the index holds private text. Pass --allow-lan to expose it.")
+    print(f"WARNING: serving your private index to the network on {a.host}; anyone who can reach it can read it.")
+    if a.host in ("0.0.0.0", "::"):
+        print("  Wildcard host: DNS-rebinding protection (Host check) is off.")
+        return {"*"}
+    return hosts | {a.host}
+
+
 def cmd_serve(a):
+    allowed = _serve_hosts(a)
     import uvicorn
 
     from .web import create_app
     store, emb, s = _open(a)
     print(f"Open http://{a.host}:{a.port}")
-    uvicorn.run(create_app(store, emb), host=a.host, port=a.port, log_level="warning")
+    uvicorn.run(create_app(store, emb, allowed), host=a.host, port=a.port, log_level="warning")
 
 
 def cmd_watch(a):
@@ -201,6 +224,7 @@ def main(argv=None):
 
     sp = sub.add_parser("serve", help="web UI"); common(sp)
     sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8765)
+    sp.add_argument("--allow-lan", action="store_true", help="allow a non-loopback --host (exposes the index)")
     sp.set_defaults(fn=cmd_serve)
 
     sp = sub.add_parser("watch", help="index, then re-index files as they change"); common(sp, True)
