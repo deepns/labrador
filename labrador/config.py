@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 MODEL_ID = os.environ.get("LABRADOR_MODEL", "google/embeddinggemma-2")
+LLM_URL = os.environ.get("LABRADOR_LLM_URL", "http://127.0.0.1:11434/v1")
+LLM_MODEL = os.environ.get("LABRADOR_LLM_MODEL", "gemma4:e4b")   # provisional until the QA benchmark picks one
 HOME = Path(os.environ.get("LABRADOR_HOME", Path.home() / ".labrador"))
 
 TEXT_EXT = {".txt", ".md", ".markdown", ".rst", ".csv", ".json", ".yaml", ".yml", ".log",
@@ -46,6 +48,16 @@ class Settings:
     batch_text: int = 16
     batch_image: int = 4
     extra_skip_dirs: set[str] = field(default_factory=set)
+    # Local LLM answers (labrador ask)
+    llm_url: str = LLM_URL            # OpenAI-compatible base URL; "fake" selects FakeLLM
+    llm_model: str = LLM_MODEL        # model name as the runtime knows it
+    llm_extra: dict = field(default_factory=lambda: {"keep_alive": "2m"})   # passed to the runtime as-is
+    temperature: float = 0.0
+    ask_search_k: int = 10            # hits retrieved per question
+    ask_sources: int = 5              # hits packed into the prompt
+    source_tokens: int = 1500         # cap per source (chars/4)
+    context_tokens: int = 4096        # prompt budget; match OLLAMA_CONTEXT_LENGTH
+    allow_remote_llm: bool = False    # skip the loopback check (prints a warning)
 
 
 def index_dir_for(folder: Path) -> Path:

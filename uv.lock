@@ -625,6 +625,7 @@ name = "labrador"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "httpx" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pillow" },
@@ -641,7 +642,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "reportlab" },
@@ -664,7 +664,7 @@ tesseract = [
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx", marker = "extra == 'dev'" },
+    { name = "httpx", specifier = ">=0.27" },
     { name = "matplotlib", marker = "extra == 'sample'", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "ocrmac", marker = "extra == 'mac'", specifier = ">=1.0" },
