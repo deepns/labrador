@@ -11,6 +11,8 @@ labrador is a learning-sized (~1,200 lines) local multimodal search tool built o
 ## Git
 
 - **Never commit to `main`.** Create a branch, commit there, and open a PR against `main`. The `no-commit-to-branch` pre-commit hook rejects commits on `main`.
+- **Keep PRs human-reviewable**: aim for ≤ ~400 changed lines (excluding `uv.lock`) and one concern per PR. Split big work by phase or module, or land a refactor before the feature that needs it; never one PR with thousands of lines of diff. CI's `pr-size` job warns above 400.
+- **CI** (`.github/workflows/ci.yml`) runs pre-commit on all files and `pytest` on macOS for every PR; fill in `.github/pull_request_template.md`.
 
 ## Testing
 

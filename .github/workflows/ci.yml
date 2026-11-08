@@ -1,0 +1,58 @@
+# CI: the same checks as local pre-commit + pytest, so a PR can't merge on a skipped hook.
+# Tests use the fake (hashing) embedder, so no model is downloaded.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      # no-commit-to-branch guards local commits; CI checks out main on push, so skip it here.
+      - run: uvx pre-commit run --all-files --show-diff-on-failure
+        env:
+          SKIP: no-commit-to-branch
+
+  test:
+    # macOS on Apple Silicon is the supported platform, and the mac extra enables the OCR test.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - run: uv run --locked --extra dev --extra mac pytest -q
+
+  pr-size:
+    # Advisory only: warns when a PR is too big to review well. See CLAUDE.md "Git".
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Count changed lines (excluding lockfile)
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          LIMIT: 400
+        run: |
+          n=$(git diff --numstat "$BASE...$HEAD" -- . ':(exclude)uv.lock' \
+              | awk '$1 != "-" { s += $1 + $2 } END { print s + 0 }')
+          echo "Changed lines (added + removed, excluding uv.lock): $n (guideline: <= $LIMIT)"
+          if [ "$n" -gt "$LIMIT" ]; then
+            echo "::warning title=Large PR::$n changed lines. Aim for <= $LIMIT so a person can review it in one sitting; split by phase, by module, or refactor-then-feature."
+          fi
