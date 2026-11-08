@@ -318,18 +318,27 @@ none of them needs a model or a network:
 
 ## Rollout
 
-Each phase is one PR. Each PR includes its tests, updates the docs for its changes, and updates its row here.
+Each row is one PR. Every PR stays within about 400 changed lines (excluding `uv.lock`; see CLAUDE.md), includes
+its tests, updates the docs for its change, and updates its row here. A phase that won't fit is split into rows
+*before* coding starts, never after the diff has grown.
 
-| Phase | Scope | Kind | Status |
-|---|---|---|---|
-| P0 | `keywords()` and `keyword_query` for BM25 | ranking | done (#1) |
-| P1 | Index file permissions, Host and Origin checks, CSP, `--allow-lan` | plumbing | not started |
-| D | `docs/`: installation, usage, FAQ, security and privacy, CLI and configuration reference; `CHANGELOG.md` | docs | not started |
-| P2 | `llm.py` and `answer.py`, with tests on `FakeLLM` | plumbing | not started |
-| P3 | `labrador ask` in the CLI | plumbing | not started |
-| P4 | `/api/ask` and Ask mode in the web UI (needs P1) | plumbing | not started |
-| P5 | QA benchmark, `eval --answers`, choosing the default model | quality | not started |
-| P6 | `--images`: vision models read the original file | quality | not started |
-| P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | optional | not planned |
+| Phase | Scope | Needs | Est. lines | Kind | Status |
+|---|---|---|---|---|---|
+| P0 | `keywords()` and `keyword_query` for BM25 | | | ranking | done (#1) |
+| P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | not started |
+| P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | not started |
+| P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | not started |
+| P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | not started |
+| P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | not started |
+| P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | not started |
+| P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | not started |
+| P6 | `--images`: vision models read the original file | P5b | ~150 | quality | not started |
+| P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | | | optional | not planned |
+| D1 | `docs/README.md`, `installation.md`, `usage/quickstart.md`; `cli.build_parser()`; `tests/test_docs.py` (links, flags, quick start) | | ~400 | docs | not started |
+| D2 | `usage/` pages: indexing, searching, web UI, evaluating; README slimmed to the front door | D1 | ~400 | docs | not started |
+| D3 | `faq.md`, `security-privacy.md`, root `SECURITY.md` | D1 | ~350 | docs | not started |
+| D4 | `scripts/gen_cli_reference.py`, `reference/cli.md`, `reference/configuration.md` and their tests; `CHANGELOG.md` | D1 | ~350 | docs | not started |
 
-P1, D and P2 have no dependencies and touch no common files, so they can be built in parallel.
+**Can start now, in parallel:** P1, P2a, P5a and D1 touch no common files.
+
+**Once D1 lands:** D2, D3 and D4 each add one line to `docs/README.md`'s page map and otherwise don't overlap.
