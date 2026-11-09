@@ -175,7 +175,7 @@ labrador already holds two legs of the "lethal trifecta": private data (the inde
 indexed file). The design makes sure the third leg, an outbound channel, never exists:
 
 1. The answering model has no tools.
-2. Answers render as plain text (`textContent`), under a CSP of `default-src 'self'; img-src 'self'; connect-src 'self'`.
+2. Answers render as plain text (`textContent`), under a CSP of `default-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'`.
 3. Citations map `[n]` to labrador's own path metadata. The model never produces a URL or path that labrador opens.
 4. The LLM URL must resolve to loopback, checked by resolved IP. Overriding that needs `--allow-remote-llm`, which
    prints a warning on every run.
@@ -313,7 +313,7 @@ none of them needs a model or a network:
   print unmasked.
 - No public benchmark measures 4–12B models transcribing long IDs or reading MRZ lines. P5 builds one on fictional
   data.
-- A CSP would block the current inline script. Moving it to `static/app.js` in P1 fixes that.
+- ~~A CSP would block the current inline script.~~ Resolved in P1: script and styles moved to `static/app.js` / `static/app.css`.
 - `labrador search` still shows unmasked snippets. Whether masking should apply everywhere is decided after P4.
 
 ## Rollout
@@ -325,7 +325,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | Phase | Scope | Needs | Est. lines | Kind | Status |
 |---|---|---|---|---|---|
 | P0 | `keywords()` and `keyword_query` for BM25 | | | ranking | done (#1) |
-| P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | not started |
+| P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | in review |
 | P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | not started |
 | P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | not started |
 | P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | not started |

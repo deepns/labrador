@@ -1,4 +1,8 @@
-"""Small local web UI (Starlette). Binds to 127.0.0.1 only; serves only files that are in the index."""
+"""Small local web UI (Starlette). Binds to 127.0.0.1 only; serves only files that are in the index.
+
+A pure-ASGI middleware adds the browser protections: Host allow-list (blocks DNS rebinding), Origin check on
+unsafe methods (blocks cross-site POSTs), and CSP / nosniff / no-referrer / no-store headers on every response.
+"""
 
 from __future__ import annotations
 
@@ -9,15 +13,59 @@ from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
-from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response
-from starlette.routing import Route
+from starlette.datastructures import Headers
+from starlette.middleware import Middleware
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
 
 from .search import search
 
 STATIC = Path(__file__).parent / "static"
 
 
-def create_app(store, emb):
+# Applied to every response, /file/{fid} included on purpose: an indexed .html file opened from the UI
+# must not run scripts on labrador's origin.
+SECURITY_HEADERS = {
+    "content-security-policy": "default-src 'self'; img-src 'self'; connect-src 'self'; frame-ancestors 'none'",
+    "x-content-type-options": "nosniff",
+    "referrer-policy": "no-referrer",
+}
+
+
+class WebGuard:
+    """Pure ASGI (no BaseHTTPMiddleware) so streamed responses pass through untouched."""
+
+    def __init__(self, app, allowed_hosts=("127.0.0.1", "localhost")):
+        self.app = app
+        self.allowed_hosts = {h.lower() for h in allowed_hosts}
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        h = Headers(scope=scope)
+        host = h.get("host", "").lower()
+        hostname = host.rsplit(":", 1)[0] if not host.endswith("]") and ":" in host else host
+        if "*" not in self.allowed_hosts and hostname.strip("[]") not in self.allowed_hosts:
+            return await PlainTextResponse("Invalid host header", status_code=400)(scope, receive, send)
+        origin = h.get("origin")
+        if scope["method"] not in ("GET", "HEAD", "OPTIONS") and origin is not None \
+                and origin.lower().split("://", 1)[-1] != host:
+            return await PlainTextResponse("Cross-origin request refused", status_code=403)(scope, receive, send)
+
+        async def send_with_headers(msg):
+            if msg["type"] == "http.response.start":
+                hdrs = Headers(raw=msg["headers"])
+                extra = dict(SECURITY_HEADERS)
+                if "cache-control" not in hdrs:
+                    extra["cache-control"] = "no-store"
+                msg["headers"] = [*msg["headers"], *((k.encode(), v.encode()) for k, v in extra.items())]
+            await send(msg)
+
+        await self.app(scope, receive, send_with_headers)
+
+
+def create_app(store, emb, allowed_hosts=None):
     model_lock = threading.Lock()   # one model, one inference at a time (MPS isn't re-entrant)
 
     def _search(q, k, only):
@@ -72,4 +120,5 @@ def create_app(store, emb):
         Route("/media/{name}", media),
         Route("/file/{fid:int}", original),
         Route("/reveal/{fid:int}", reveal, methods=["POST"]),
-    ])
+        Mount("/static", StaticFiles(directory=STATIC)),
+    ], middleware=[Middleware(WebGuard, allowed_hosts=allowed_hosts or ("127.0.0.1", "localhost"))])
