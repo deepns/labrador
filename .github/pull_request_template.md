@@ -6,6 +6,7 @@
 
 - [ ] Plumbing (behaviour unchanged for ranking; `pytest` is enough)
 - [ ] Ranking or answer quality (eval before/after below)
+- [ ] Web UI (`web.py`, `static/`, response headers; manual check below)
 - [ ] Docs only
 
 ## Checklist
@@ -24,6 +25,15 @@
 |---|---|---|---|
 | before | | | |
 | after | | | |
+
+## UI check (web UI changes only)
+
+<!-- Run `labrador serve` on `~/labrador-sample` (`--backend fake` is fine) and check in a real browser. The author checks; the reviewer only re-checks. -->
+
+- [ ] Screenshots: before (`main`) and after for each screen touched, or one after-shot if nothing should look different
+- [ ] Browser console clean on load, search, filters and lightbox (no errors, no CSP violations)
+- [ ] Flows still work: search, filter chips, lightbox, Open (PDFs at the right page), Show in Finder
+- [ ] Browsers checked: <!-- e.g. Safari 18, Chrome 131 -->
 
 ## Notes for the reviewer
 
