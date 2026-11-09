@@ -36,7 +36,8 @@ def test_loopback_accepts(monkeypatch):
 
 
 @pytest.mark.parametrize("url", ["http://10.0.0.5:11434/v1", "http://192.168.1.2/v1", "/v1", "http:///v1",
-                                 "http://127.0.0.1:99999/v1", "http://127.0.0.1:abc/v1"])
+                                 "http://127.0.0.1:99999/v1", "http://127.0.0.1:abc/v1",
+                                 "ftp://127.0.0.1/v1"])
 def test_loopback_rejects(url):
     with pytest.raises(LLMError):
         require_loopback(url)
@@ -55,6 +56,20 @@ def test_loopback_rejects_hostnames(monkeypatch):
     monkeypatch.setattr(socket, "getaddrinfo", boom)
     with pytest.raises(LLMError, match="resolve"):
         require_loopback("http://nowhere.invalid/v1")
+
+
+def test_malformed_responses_raise_llm_error():
+    bad_sse = make(lambda req: httpx.Response(200, content=b"data: {not json\n\n"))
+    with pytest.raises(LLMError, match="can't parse"):
+        list(bad_sse.stream(MSGS))
+    oops = make(lambda req: httpx.Response(200, json={"oops": 1}))
+    with pytest.raises(LLMError, match="can't parse"):
+        oops.complete(MSGS)
+
+    def read_error(req):
+        raise httpx.ReadError("connection reset")
+    with pytest.raises(LLMError, match="failed"):
+        make(read_error).complete(MSGS)
 
 
 def test_stream_parses_sse():

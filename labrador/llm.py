@@ -35,6 +35,8 @@ class LLM:
 
 def require_loopback(url: str) -> None:
     parts = urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise LLMError(f"LLM URL must be http or https: {url!r}")
     host = parts.hostname
     if not host:
         raise LLMError(f"LLM URL has no host: {url!r}")
@@ -62,6 +64,10 @@ def _http_errors(url: str, timeout: float):
         raise LLMError(f"Can't reach the LLM server at {url}. Is it running? (Ollama: `ollama serve`)") from e
     except httpx.TimeoutException as e:
         raise LLMError(f"LLM server at {url} timed out after {timeout:g}s") from e
+    except httpx.HTTPError as e:                           # read errors, protocol errors, bad URLs...
+        raise LLMError(f"LLM request to {url} failed: {e}") from e
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as e:
+        raise LLMError("LLM server sent a response labrador can't parse (is it OpenAI-compatible?)") from e
 
 
 class OpenAICompatLLM(LLM):
@@ -98,7 +104,7 @@ class OpenAICompatLLM(LLM):
                         raise LLMError(f"LLM server error: {chunk['error']}")
                     if not chunk.get("choices"):           # e.g. a final usage-only chunk
                         continue
-                    delta = chunk["choices"][0]["delta"].get("content")
+                    delta = chunk["choices"][0].get("delta", {}).get("content")
                     if delta:                              # first chunk has only a role; some send null
                         yield delta
 
