@@ -215,7 +215,7 @@ blocks searches. Nothing from the model reaches `innerHTML`.
 
 | Setting | Default | Flag / env |
 |---|---|---|
-| `llm_url` | `http://127.0.0.1:11434/v1` | `--llm-url`, `LABRADOR_LLM_URL` |
+| `llm_url` | `http://127.0.0.1:11434/v1` | `--llm-url`, `LABRADOR_LLM_URL` (`fake` selects `FakeLLM`) |
 | `llm_model` | `gemma4:e4b` (provisional) | `--model`, `LABRADOR_LLM_MODEL` |
 | `llm_extra` | `{"keep_alive": "2m"}` | `--llm-extra` (passed to the runtime as-is, e.g. to turn off Qwen's thinking mode) |
 | `temperature` | `0.0` | |
@@ -325,8 +325,8 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | Phase | Scope | Needs | Est. lines | Kind | Status |
 |---|---|---|---|---|---|
 | P0 | `keywords()` and `keyword_query` for BM25 | | | ranking | done (#1) |
-| P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | in review |
-| P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | not started |
+| P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | done (#4) |
+| P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | in review |
 | P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | not started |
 | P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | not started |
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | not started |
