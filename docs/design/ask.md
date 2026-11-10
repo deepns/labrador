@@ -334,7 +334,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | not started |
 | P6 | `--images`: vision models read the original file | P5b | ~150 | quality | not started |
 | P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | | | optional | not planned |
-| D1 | `docs/README.md`, `installation.md`, `usage/quickstart.md`; `cli.build_parser()`; `tests/test_docs.py` (links, flags, quick start) | | ~400 | docs | done (#?) |
+| D1 | `docs/README.md`, `installation.md`, `usage/quickstart.md`; `cli.build_parser()`; `tests/test_docs.py` (links, flags, quick start) | | ~400 | docs | done (#9) |
 | D2 | `usage/` pages: indexing, searching, web UI, evaluating; README slimmed to the front door | D1 | ~400 | docs | not started |
 | D3 | `faq.md`, `security-privacy.md`, root `SECURITY.md` | D1 | ~350 | docs | not started |
 | D4 | `scripts/gen_cli_reference.py`, `reference/cli.md`, `reference/configuration.md` and their tests; `CHANGELOG.md` | D1 | ~350 | docs | not started |
