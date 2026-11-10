@@ -6,12 +6,16 @@ import io
 import math
 import random
 
-import matplotlib
+import numpy as np
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt  # noqa: E402
-import numpy as np  # noqa: E402
-from PIL import Image, ImageDraw, ImageFilter, ImageFont  # noqa: E402
+try:  # only the charts need matplotlib; the identity documents (tests) do not
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+except ImportError:
+    plt = None
 
 FONT_DIRS = ["/usr/share/fonts/truetype/dejavu/", "/usr/share/fonts/truetype/freefont/",
              "/usr/share/fonts/opentype/inter/", "/System/Library/Fonts/Supplemental/", "/Library/Fonts/"]
@@ -513,3 +517,21 @@ def scanned_page(lines, seed, title_size=34, size=30):
     specks = rnd.random((1650, 1275)) > 0.9993
     a[specks] = 40
     return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8)).convert("L").filter(ImageFilter.GaussianBlur(0.7))
+
+
+# ------------------------------------------------------------------ identity documents
+
+def id_document(title, fields, mrz=(), tint=(236, 240, 248), angle=None, seed=0):
+    """A flat card: title, label/value rows and optional MRZ lines; `angle` makes it a phone photo of the card."""
+    w, h = 940, 150 + 46 * len(fields) + (40 + 52 * len(mrz) if mrz else 0)
+    im = Image.new("RGB", (w, h), tint)
+    d = ImageDraw.Draw(im)
+    d.text((40, 36), title, fill=(20, 40, 90), font=font(32, True))
+    y = 110
+    for label, value in fields:
+        d.text((40, y + 6), label, fill=(90, 90, 100), font=font(17))
+        d.text((300, y), value, fill=(15, 15, 20), font=font(27, kind="mono"))
+        y += 46
+    for i, ln in enumerate(mrz):
+        d.text((40, h - 40 - 52 * (len(mrz) - i)), ln, fill=(10, 10, 10), font=font(29, kind="mono"))
+    return im if angle is None else paper_photo(im, angle, seed)
