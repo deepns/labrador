@@ -330,7 +330,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | not started |
 | P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | not started |
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | not started |
-| P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | done (#?) |
+| P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | done (#10) |
 | P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | not started |
 | P6 | `--images`: vision models read the original file | P5b | ~150 | quality | not started |
 | P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | | | optional | not planned |
