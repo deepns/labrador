@@ -40,7 +40,8 @@ uv run labrador search "are dogs allowed in my apartment"
 uv run labrador eval evals/sample_queries.jsonl
 uv run labrador serve                               # http://127.0.0.1:8765
 
-# 3. The benchmark: 120-file fictional folder, 114 labelled queries in 13 categories
+# 3. The benchmark: 126-file fictional folder, 114 labelled queries in 13 categories, plus bench/data/qa.jsonl
+#    (answer questions over folder/documents for `labrador ask`; fields in bench/make_bench.py)
 #    (unzip labrador-bench.zip, or regenerate it: uv run python bench/make_bench.py bench/data)
 uv run labrador index bench/data/folder
 uv run labrador eval bench/data/queries.jsonl --out evals/out/results.json   # per-category hit@1, hit@5, MRR
