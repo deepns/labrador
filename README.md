@@ -16,6 +16,8 @@ query ──► EmbeddingGemma 2 (SearchQuery prompt) ──► cosine, per-moda
                                                    + BM25 keywords ──► RRF ──► group ──► results
 ```
 
+Docs: see the [documentation front page](docs/README.md).
+
 ## Requirements
 
 - Apple Silicon Mac, macOS 14+, ~4 GB free RAM, ~2 GB disk for the model.
