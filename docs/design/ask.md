@@ -327,7 +327,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P0 | `keywords()` and `keyword_query` for BM25 | | | ranking | done (#1) |
 | P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | done (#4) |
 | P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | done (#5) |
-| P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | done (#?) |
+| P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | done (#11) |
 | P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | not started |
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | not started |
 | P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | not started |
