@@ -21,6 +21,7 @@ labrador is a learning-sized (~1,200 lines) local multimodal search tool built o
 - **Ranking-quality** changes: the fake embedder says nothing about quality. Index the benchmark with the real model and compare `labrador eval bench/data/queries.jsonl --out <file>.json` before and after. Run `uv run python scripts/check_model.py` first on a new machine or after touching `embedder.py`.
 - **Web UI** changes (`web.py`, `static/`, headers): `tests/test_web.py` checks responses, not rendering. Run `labrador serve` on `~/labrador-sample`, click through search, filters, lightbox, Open and Show in Finder in a browser with the console open (CSP violations only show there), and attach before/after screenshots to the PR.
 - **Eval output** (`--out` files, harness results, analysis dumps) goes in `evals/out/`, which is gitignored. Commit the harness scripts and the written-up `REPORT.md`, never the raw results.
+- **Reports**: research that a design doc cites goes in `reports/` as Markdown. Generated reports, status snapshots and PR review notes go in `reports/local/`, which is gitignored; reviews belong on the PR itself.
 - **No machine-specific paths** in committed files: no `/Users/<name>`, `~/Downloads`, real index folder names (a folder name plus its 10-hex hash) or links to gitignored output. Use the documented conventions (`bench/data/`, `~/labrador-sample`, `~/.labrador/indexes/<folder>-<hash>`, `evals/out/`).
 
 ## Invariants

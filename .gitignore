@@ -33,3 +33,6 @@ evals/**/analysis-*.txt
 
 # Generated benchmark (rebuild: uv run python bench/make_bench.py bench/data)
 bench/data/
+
+# Generated reports, status snapshots and review notes: kept locally, never versioned.
+reports/local/
