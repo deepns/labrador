@@ -1,6 +1,6 @@
 # Design: local LLM answers (`labrador ask`)
 
-Status: **proposed**. Research: [reports/Local LLM answers over labrador.md](../../reports/Local%20LLM%20answers%20over%20labrador.md).
+Status: **in progress** (see [Rollout](#rollout)). Research: [reports/Local LLM answers over labrador.md](../../reports/Local%20LLM%20answers%20over%20labrador.md).
 
 `labrador ask "what's my passport number"` answers a question about the indexed folder with a local LLM. It is a
 fixed, single-shot step on top of the existing hybrid search. The model call is the smallest part. Most of the
@@ -326,7 +326,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 |---|---|---|---|---|---|
 | P0 | `keywords()` and `keyword_query` for BM25 | | | ranking | done (#1) |
 | P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | done (#4) |
-| P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | in review |
+| P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | done (#5) |
 | P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | not started |
 | P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | not started |
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | not started |
