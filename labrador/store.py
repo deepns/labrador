@@ -165,8 +165,15 @@ class Store:
         cols = ["id", "file_id", "path", "ftype", "kind", "modality", "grp", "page", "chunk", "text", "media"]
         return {r[0]: dict(zip(cols, r)) for r in cur}
 
+    def files_meta(self, ids: list[int]) -> dict[int, dict]:
+        if not ids:
+            return {}
+        q = ",".join("?" * len(ids))
+        cur = self.db.execute(f"SELECT id, path, mtime FROM files WHERE id IN ({q})", list(ids))
+        return {r[0]: {"path": r[1], "mtime": r[2]} for r in cur}
+
     def group_units(self, file_id: int, grp: str) -> list[dict]:
-        cur = self.db.execute("SELECT id, kind, modality, text, media FROM units WHERE file_id=? AND grp=?",
+        cur = self.db.execute("SELECT id, kind, modality, text, media FROM units WHERE file_id=? AND grp=? ORDER BY chunk, id",
                               (file_id, grp))
         return [dict(zip(["id", "kind", "modality", "text", "media"], r)) for r in cur]
 
