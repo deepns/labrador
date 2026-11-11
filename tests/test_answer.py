@@ -99,6 +99,41 @@ def test_check_citations_and_verbatim(env):
     assert check("L898902C3", sources).unverified == ["L898902C3"]      # no citation, so nothing verifies it
 
 
+def test_regressions_from_review(env):
+    store = env[0]
+    for t in ["in 2025 4111 1111 1111 1111 was used", "card 4111 1111 1111 1111 12/27"]:      # card next to a digit group
+        segs = mask_text(t)
+        assert [x["raw"] for x in segs if isinstance(x, dict)] == ["4111 1111 1111 1111"]
+        assert any(w in "".join(x for x in segs if isinstance(x, str)) for w in ("2025", "12/27"))
+    raws = [x["raw"] for x in mask_text("ref HX-5520-3187-04, 555-123-4567, well-known, 2025-04-02, ABC-1234567-X") if isinstance(x, dict)]
+    assert raws == ["HX-5520-3187-04", "555-123-4567", "ABC-1234567-X"]
+    assert [x["raw"] for x in mask_text("Visa-4111 1111 1111 1111") if isinstance(x, dict)] == ["4111 1111 1111 1111"]
+    assert [x["raw"] for x in mask_text("ab-X12345") if isinstance(x, dict)] == ["X12345"]
+    sources = passport_sources(env)
+    assert check("Ref HX-5520-3187-04 [1]", sources).unverified == ["HX-5520-3187-04"]
+    sources[0].text += "\nDate of expiry 02 APR 2033 ref HX-5520-3187-04"
+    assert not check("Ref HX-5520-3187-04 [1]", sources).unverified
+    assert check("Expires 02 APR 2034 [1]", sources).unverified == ["02 APR 2034"]
+    assert not check("Expires 2033-04-02 [1], also 2 April 2033 [1]", sources).unverified
+    assert check("I couldn\u2019t find that in your files.", sources).refused
+    assert not check("The number is L898902C3 [1]. As for the visa: I couldn't find that in your files.", sources).refused
+    c = check("Number L898902C3 [1, 2] and [1,9]", sources)
+    assert c.citations == [1, 2] and c.bad_citations == ["[9]"]
+    assert store.keyword_count("passport") == 2 and store.keyword_count("xyzzy") == 0 and store.keyword_count("") == 0
+    sources[0].modified = ""
+    assert "modified=" not in build_messages("q?", sources[:1])[1]["content"]
+
+
+def test_pack_single_source_budget_and_missing_mtime(env):
+    store, emb, s = env
+    hits = retrieve(store, emb, "passport number", "passport number", s)
+    sources, warns = pack(hits, store, Settings(backend="fake", context_tokens=350))
+    assert len(sources) == 1 and len(sources[0].text) + 200 <= 350 * 4 - 1200 and sources[0].truncated
+    assert any("fit the 350-token context" in w for w in warns)
+    store.files_meta = lambda ids: {}
+    assert pack(hits, store, s)[0][0].modified == ""
+
+
 def test_mrz_check_digits(env):
     assert mrz_valid(LINE2)
     assert not mrz_valid(LINE2.replace("L898902C3", "L898902C4"))         # document number
@@ -122,7 +157,7 @@ def test_masking_rules():
 def test_masker_never_leaks_ids_split_across_deltas():
     assert "".join(Masker(reveal=True).feed("L898902C3")) == "L898902C3"
     rng = random.Random(7)
-    for secret in ["L898902C3", "4111 1111 1111 1111", "123-45-6789", LINE2, "ZX9917342"]:
+    for secret in ["L898902C3", "4111 1111 1111 1111", "123-45-6789", LINE2, "ZX9917342", "HX-5520-3187-04"]:
         text = f"Your number is {secret}, thanks. Also {secret}"
         for _ in range(200):
             cuts = sorted(rng.sample(range(1, len(text)), rng.randint(1, 8)))
@@ -132,6 +167,19 @@ def test_masker_never_leaks_ids_split_across_deltas():
             segs += m.flush()
             assert secret not in "".join(x for x in segs if isinstance(x, str))
             assert [x["raw"] for x in segs if isinstance(x, dict)] == [secret, secret]
+
+
+def test_masker_card_next_to_other_tokens_split_across_deltas():
+    rng, card = random.Random(11), "4111 1111 1111 1111"
+    for text in ["pay Visa-4111 1111 1111 1111 12/27 ok", "in 2025 4111 1111 1111 1111 was used"]:
+        for _ in range(200):
+            cuts = sorted(rng.sample(range(1, len(text)), rng.randint(1, 8)))
+            m, segs = Masker(), []
+            for a, b in zip([0] + cuts, cuts + [len(text)]):
+                segs += m.feed(text[a:b])
+            segs += m.flush()
+            assert card not in "".join(x for x in segs if isinstance(x, str))
+            assert [x["raw"] for x in segs if isinstance(x, dict)] == [card]
 
 
 def test_event_order_and_masked_stream(env):
@@ -165,6 +213,9 @@ def test_json_mode(env):
     assert run(env, ["not json"], json_mode=True)[0][-1]["type"] == "error"
     nf = run(env, ['{"found": false, "answer": "x", "citations": [1], "quote": ""}'], q="insurance zzzunknown", json_mode=True)[0]
     assert "".join(e.get("text", "") for e in nf) == REFUSAL
+    nf = run(env, ['{"found": false, "answer": "x", "citations": [], "quote": "bogus"}'], q="insurance zzzunknown", json_mode=True)[0]
+    assert nf[-1]["check"]["confidence"] == "refused"
+    assert run(env, [ok.replace('"Passport number L898902C3"', "5")], json_mode=True)[0][-1]["type"] == "error"
 
 
 def test_empty_index_refuses_without_calling_llm(tmp_path):
