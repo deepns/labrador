@@ -2,6 +2,7 @@
 
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -20,11 +21,6 @@ def built(tmp_path_factory):
     return root, rows
 
 
-def check_digit(s):  # ICAO 9303: weights 7,3,1; digits as is, A-Z = 10..35, '<' = 0
-    val = lambda c: int(c) if c.isdigit() else 0 if c == "<" else ord(c) - 55
-    return str(sum(val(c) * (7, 3, 1)[i % 3] for i, c in enumerate(s)) % 10)
-
-
 def test_qa_rows_are_well_formed(built):
     root, rows = built
     assert 20 <= len(rows) <= 40
@@ -37,19 +33,42 @@ def test_qa_rows_are_well_formed(built):
         assert bool(r["answer"]) == r["answerable"], r
         if r["answer"].startswith("re:"):
             re.compile(r["answer"][3:])
+        near = [r["near"]] if isinstance(r.get("near"), str) else r.get("near", [])
+        assert all((root / e).exists() for e in near), r
+        assert (r["category"] == "near-miss") == bool(near), r
+        if not r["answerable"]:
+            assert r["expect"] == [], r
+        for b in r.get("bad", []):
+            if b.startswith("re:"):
+                re.compile(b[3:])
     assert len({r["question"] for r in rows}) == len(rows)
 
 
 def test_passport_mrz_check_digits(built):
-    # the old passport's text layer is a PDF; check the generator's output for both via the function it uses
-    for args in [("HALVORSEN", "TOVE MARIE", "QX7340518", "880314", "F", "330402"),
-                 ("HALVORSEN", "TOVE MARIE", "KB2206937", "880314", "F", "140609")]:
-        l1, l2 = make_bench.td3(*args)
-        assert len(l1) == len(l2) == 44 and l1.startswith("P<UTO")
-        assert l2[9] == check_digit(l2[:9]) and l2[19] == check_digit(l2[13:19]) and l2[27] == check_digit(l2[21:27])
-        assert l2[42] == check_digit(l2[28:42]) and l2[43] == check_digit(l2[0:10] + l2[13:20] + l2[21:43])
+    root, _ = built
+    # pypdfium2 runs in a child: loading it in the pytest process makes later subprocess forks segfault on macOS
+    code = "import sys, pypdfium2 as p; print(p.PdfDocument(sys.argv[1])[0].get_textpage().get_text_range())"
+    text = subprocess.run([sys.executable, "-c", code, str(root / "documents/old-passport.pdf")],
+                          capture_output=True, text=True, check=True).stdout
+    (old,) = [ln.strip() for ln in text.splitlines() if len(ln.strip()) == 44 and ln.strip().startswith("KB2206937")]
+    assert "09 JUN 2014" in text and old[21:27] == "140609"
+    # the current passport is an image, so check the generator's function for it; the old one is read back above
+    cur = make_bench.td3("HALVORSEN", "TOVE MARIE", "QX7340518", "880314", "F", "330402")[1]
+    for l2 in (old, cur):
+        assert len(l2) == 44
+        assert l2[9] == make_bench.mrz_check(l2[:9]) and l2[19] == make_bench.mrz_check(l2[13:19])
+        assert l2[27] == make_bench.mrz_check(l2[21:27]) and l2[42] == make_bench.mrz_check(l2[28:42])
+        assert l2[43] == make_bench.mrz_check(l2[0:10] + l2[13:20] + l2[21:43])
+
+
+def test_date_re():
+    pat = re.compile(make_bench.date_re(2033, 4, 2)[3:])
+    for ok in ["02 APR 2033", "2 April 2033", "2033-04-02", "Apr 2, 2033", "April 02 2033"]:
+        assert pat.search(ok), ok
+    for bad in ["12 April 2033", "22 Apr 2033", "2 April 20331", "12033-04-02"]:
+        assert not pat.search(bad), bad
 
 
 def test_icao_specimen_check_digits():
     # ICAO 9303 specimen: L898902C3 -> 6, dob 740812 -> 2, expiry 120415 -> 9
-    assert (check_digit("L898902C3"), check_digit("740812"), check_digit("120415")) == ("6", "2", "9")
+    assert (make_bench.mrz_check("L898902C3"), make_bench.mrz_check("740812"), make_bench.mrz_check("120415")) == ("6", "2", "9")
