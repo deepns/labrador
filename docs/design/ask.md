@@ -339,6 +339,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | D3 | `faq.md`, `security-privacy.md`, root `SECURITY.md` | D1 | ~350 | docs | not started |
 | D4 | `scripts/gen_cli_reference.py`, `reference/cli.md`, `reference/configuration.md` and their tests; `CHANGELOG.md` | D1 | ~350 | docs | not started |
 
-**Can start now, in parallel:** P1, P2a, P5a and D1 touch no common files.
+**Can start now, in parallel:** P3 (`cli.py`) and P4 (`web.py`, `static/`) both build on P2b and touch separate
+modules. D2, D3 and D4 each add one line to `docs/README.md`'s page map and otherwise don't overlap.
 
-**Once D1 lands:** D2, D3 and D4 each add one line to `docs/README.md`'s page map and otherwise don't overlap.
+**Once P3 lands:** P5b, then P6.
