@@ -15,7 +15,11 @@ try:  # only the charts need matplotlib; the identity documents (tests) do not
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 except ImportError:
-    plt = None
+
+    class plt:  # stand-in so importing render works; any chart call says what to install
+        def __getattr__(self, name):
+            raise ImportError("matplotlib is needed for the benchmark charts: install the `sample` extra")
+    plt = plt()
 
 FONT_DIRS = ["/usr/share/fonts/truetype/dejavu/", "/usr/share/fonts/truetype/freefont/",
              "/usr/share/fonts/opentype/inter/", "/System/Library/Fonts/Supplemental/", "/Library/Fonts/"]

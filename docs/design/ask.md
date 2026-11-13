@@ -247,7 +247,7 @@ Scoring is deterministic and needs no LLM judge, the same approach as `labrador 
 - a distractor note
 - a file with a planted injection
 
-`bench/data/qa.jsonl` rows have the fields `question`, `expect`, `answer` (a string, or a regex when it starts with `re:`) and `answerable`, plus an optional `bad` list of planted or stale values that must not appear.
+`bench/data/qa.jsonl` rows have the fields `question`, `expect`, `answer` (a string, or a regex when it starts with `re:`) and `answerable`, plus an optional `bad` list of planted or stale values that must not appear and an optional `near` (a related document that lacks the fact; `expect` is `[]` for every unanswerable row).
 The categories are id-lookup, date, missing, near-miss, conflict and misleading.
 
 | Metric | Catches |

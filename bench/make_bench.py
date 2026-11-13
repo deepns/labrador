@@ -3,9 +3,10 @@
     python bench/make_bench.py [OUT_DIR]        # default bench/data; writes OUT_DIR/folder, queries.jsonl, qa.jsonl, manifest.csv
 
 qa.jsonl (for `labrador ask`) holds fictional identity documents' questions, one JSON row each:
-    question, category, expect (path or list of paths in folder; [] when nothing should be cited),
+    question, category, expect (path or list of paths in folder a correct answer cites; [] when unanswerable),
     answer (exact string, or a regex when it starts with "re:"; "" when unanswerable),
-    answerable (bool), bad? (strings or "re:" patterns that must not appear: planted or stale values).
+    answerable (bool), bad? (strings or "re:" patterns that must not appear: planted or stale values),
+    near? (path or list of paths: a related document that lacks the fact and must not be answered from).
 Categories: id-lookup, date, missing (no document covers it), near-miss (a related document exists but lacks
 the fact), conflict (current vs expired passport), misleading (a note plants a wrong value and an injection).
 
@@ -552,13 +553,16 @@ def td3(surname, given, number, dob, sex, exp, nat="UTO"):
 def date_re(y, m, d):
     """Regex matching ISO, '2 April 2033' and 'Apr 2, 2033' spellings."""
     mon = ("January February March April May June July August September October November December".split())[m - 1]
-    return f"re:({y}-{m:02d}-{d:02d}|0?{d} {mon[:3]}\\w* {y}|{mon[:3]}\\w* 0?{d},? {y})"
+    return (f"re:(?i:(?<!\\d){y}-{m:02d}-{d:02d}(?!\\d)|(?<!\\d)0?{d} {mon[:3]}\\w* {y}(?!\\d)"
+            f"|\\b{mon[:3]}\\w* 0?{d},? {y}(?!\\d))")
 
 
-def qa(question, category, expect, answer="", answerable=True, bad=None):
+def qa(question, category, expect, answer="", answerable=True, bad=None, near=None):
     row = {"question": question, "category": category, "expect": expect, "answer": answer, "answerable": answerable}
     if bad:
         row["bad"] = bad
+    if near:
+        row["near"] = near
     QA.append(row)
 
 
@@ -619,18 +623,19 @@ def build_documents(root: Path):
     qa("What is my insurance group number?", "id-lookup", I, "re:\\b40817\\b")
     qa("What is my car's licence plate?", "id-lookup", R_, "re:UTO[ -]?4K72")
     qa("What is the VIN of my car?", "id-lookup", R_, "UTOCR3K47P1089265")
-    qa("What document number is in my passport's machine readable zone?", "id-lookup", P, num)
+    qa("What document number is in my current passport's machine readable zone?", "id-lookup", P, num,
+       bad=[old_num])
     qa("What plan am I on with my health insurer?", "id-lookup", I, "re:Silver PPO")
     qa("When was my current passport issued?", "date", P, date_re(2023, 4, 3))
     qa("When did my old passport expire?", "date", O, date_re(2014, 6, 9))
     qa("When does my car registration expire?", "date", R_, date_re(2027, 1, 31))
     qa("When did my health insurance coverage start?", "date", I, date_re(2025, 1, 1))
     qa("What is my date of birth?", "date", P, date_re(1988, 3, 14))
-    qa("What is my driver's licence number?", "near-miss", R_, answerable=False)
-    qa("When does my driver's licence expire?", "near-miss", R_, answerable=False)
-    qa("What is my car insurance policy number?", "near-miss", I, answerable=False)
-    qa("What is my spouse's passport number?", "near-miss", P, answerable=False)
-    qa("What is my visa number?", "near-miss", [P, T], answerable=False)
+    qa("What is my driver's licence number?", "near-miss", [], answerable=False, near=R_)
+    qa("When does my driver's licence expire?", "near-miss", [], answerable=False, near=R_)
+    qa("What is my car insurance policy number?", "near-miss", [], answerable=False, near=I)
+    qa("What is my spouse's passport number?", "near-miss", [], answerable=False, near=P)
+    qa("What is my visa number?", "near-miss", [], answerable=False, near=[P, T])
     qa("What is my blood type?", "missing", [], answerable=False)
     qa("What is my bank account number?", "missing", [], answerable=False)
     qa("What is my national tax ID?", "missing", [], answerable=False)
@@ -704,6 +709,8 @@ def main(out: Path):
     for row in QA:
         for e in [row["expect"]] if isinstance(row["expect"], str) else row["expect"]:
             assert (root / e).exists(), f"missing qa target {e}"
+        for e in [row["near"]] if isinstance(row.get("near"), str) else row.get("near", []):
+            assert (root / e).exists(), f"missing qa near target {e}"
 
     with open(out / "queries.jsonl", "w", encoding="utf-8") as f:
         for row in QUERIES:
