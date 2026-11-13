@@ -139,21 +139,32 @@ class Store:
             self._cache, self._cache_ver = (ids, mods, M), ver
         return self._cache
 
-    def keyword(self, query: str, limit: int = 200) -> list[int]:
-        words = re.findall(r"\w+", query.lower())
-        words = [w for w in words if len(w) > 1]
-        if not words:
-            return []
+    @staticmethod
+    def _fts_and(query: str) -> str:
+        words = [w for w in re.findall(r"\w+", query.lower()) if len(w) > 1]
         # AND, not OR: OR lets common words match nearly every text unit, and that noise outranks
         # pictures and other-language files in the fusion. AND fires mostly on short, specific
         # queries (IDs, codes, names), which is where keywords beat embeddings.
-        q = " AND ".join(f'"{w}"' for w in words)
+        return " AND ".join(f'"{w}"' for w in words)
+
+    def keyword(self, query: str, limit: int = 200) -> list[int]:
+        q = self._fts_and(query)
+        if not q:
+            return []
         try:
             return [r[0] for r in self.db.execute(
                 "SELECT rowid FROM units_fts WHERE units_fts MATCH ? ORDER BY bm25(units_fts, 1.0, 0.5) LIMIT ?",
                 (q, limit))]
         except sqlite3.OperationalError:
             return []
+
+    def keyword_count(self, query: str) -> int:
+        """Total matches of keyword(), not capped by its limit."""
+        q = self._fts_and(query)
+        try:
+            return self.db.execute("SELECT COUNT(*) FROM units_fts WHERE units_fts MATCH ?", (q,)).fetchone()[0] if q else 0
+        except sqlite3.OperationalError:
+            return 0
 
     def units(self, ids: list[int]) -> dict[int, dict]:
         if not ids:
@@ -165,8 +176,15 @@ class Store:
         cols = ["id", "file_id", "path", "ftype", "kind", "modality", "grp", "page", "chunk", "text", "media"]
         return {r[0]: dict(zip(cols, r)) for r in cur}
 
+    def files_meta(self, ids: list[int]) -> dict[int, dict]:
+        if not ids:
+            return {}
+        q = ",".join("?" * len(ids))
+        cur = self.db.execute(f"SELECT id, path, mtime FROM files WHERE id IN ({q})", list(ids))
+        return {r[0]: {"path": r[1], "mtime": r[2]} for r in cur}
+
     def group_units(self, file_id: int, grp: str) -> list[dict]:
-        cur = self.db.execute("SELECT id, kind, modality, text, media FROM units WHERE file_id=? AND grp=?",
+        cur = self.db.execute("SELECT id, kind, modality, text, media FROM units WHERE file_id=? AND grp=? ORDER BY chunk, id",
                               (file_id, grp))
         return [dict(zip(["id", "kind", "modality", "text", "media"], r)) for r in cur]
 

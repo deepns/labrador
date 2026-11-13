@@ -195,7 +195,7 @@ def cmd_eval(a):
         print(f"wrote {a.out}")
 
 
-def main(argv=None):
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="labrador", description="Local multimodal search with EmbeddingGemma 2")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -239,8 +239,11 @@ def main(argv=None):
     sp.add_argument("--quiet", action="store_true", help="only the summary table")
     sp.add_argument("--out", help="write per-query results as JSON (to compare configs)")
     sp.set_defaults(fn=cmd_eval)
+    return p
 
-    a = p.parse_args(argv)
+
+def main(argv=None):
+    a = build_parser().parse_args(argv)
     a.fn(a)
 
 
