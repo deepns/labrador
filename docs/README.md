@@ -8,4 +8,5 @@ Start with the [top-level README](../README.md) for what labrador is and how the
 - [Quick start](usage/quickstart.md): index a sample folder, search it, open the web UI
 - [FAQ](faq.md): common questions on privacy, indexes and search
 - [Security and privacy](security-privacy.md): what stays local, the controls in place and their limits
+- [Asking questions](usage/asking.md): `labrador ask`, answers from a local LLM, masking and privacy
 - [Ask design](design/ask.md): design and rollout plan for `labrador ask`

@@ -63,7 +63,8 @@ def _http_errors(url: str, timeout: float):
     except httpx.ConnectError as e:
         raise LLMError(f"Can't reach the LLM server at {url}. Is it running? (Ollama: `ollama serve`)") from e
     except httpx.TimeoutException as e:
-        raise LLMError(f"LLM server at {url} timed out after {timeout:g}s") from e
+        raise LLMError(f"LLM server at {url} timed out after {timeout:g}s. The first question after the model has "
+                       "been idle loads it into memory and can take a minute or two; try again.") from e
     except httpx.HTTPError as e:                           # read errors, protocol errors, bad URLs...
         raise LLMError(f"LLM request to {url} failed: {e}") from e
     except (json.JSONDecodeError, KeyError, IndexError, TypeError) as e:
@@ -72,7 +73,7 @@ def _http_errors(url: str, timeout: float):
 
 class OpenAICompatLLM(LLM):
     def __init__(self, url: str, model: str, temperature: float = 0.0, extra: dict | None = None,
-                 timeout: float = 120.0, transport: httpx.BaseTransport | None = None):
+                 timeout: float = 300.0, transport: httpx.BaseTransport | None = None):
         self.url, self.model, self.temperature = url, model, temperature
         self.extra, self.timeout, self.name = extra or {}, timeout, model
         # trust_env=False: HTTP(S)_PROXY env vars can never route the prompt off the machine.
@@ -87,7 +88,11 @@ class OpenAICompatLLM(LLM):
     @staticmethod
     def _check(r: httpx.Response) -> None:
         if r.status_code >= 300:
-            raise LLMError(f"LLM server returned {r.status_code}: {r.read().decode(errors='replace')[:200]}")
+            body = r.read().decode(errors="replace")
+            if r.status_code == 501 and "structured output" in body:
+                raise LLMError("The LLM runtime doesn't support structured output (Ollama's MLX runner doesn't). "
+                               "Drop --json, or use a runtime/model that does, e.g. llama.cpp.")
+            raise LLMError(f"LLM server returned {r.status_code}: {body[:200]}")
 
     def stream(self, messages):
         with _http_errors(self.url, self.timeout):

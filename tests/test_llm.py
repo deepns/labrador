@@ -131,8 +131,17 @@ def test_http_errors():
 
     def slow(req):
         raise httpx.ReadTimeout("slow")
-    with pytest.raises(LLMError, match="timed out"):
+    with pytest.raises(LLMError, match=r"timed out after 300s.*loads it into memory"):
         make(slow).complete(MSGS)
+
+
+def test_structured_output_unsupported():
+    body = {"error": {"message": "structured output is unavailable"}}
+    c = make(lambda req: httpx.Response(501, json=body))
+    with pytest.raises(LLMError, match="doesn't support structured output"):
+        c.complete(MSGS, schema={"type": "object"})
+    with pytest.raises(LLMError, match="501"):                 # other 501s keep the generic message
+        make(lambda req: httpx.Response(501, text="nope")).complete(MSGS)
 
 
 def test_models():
