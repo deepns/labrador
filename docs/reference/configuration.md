@@ -9,8 +9,8 @@ change a few of them, and CLI flags (see the [CLI reference](cli.md)) override b
 |---|---|---|
 | `LABRADOR_HOME` | `~/.labrador` | Root for indexes and `last_index` (see [Index layout](#index-layout)) |
 | `LABRADOR_MODEL` | `google/embeddinggemma-2` | Embedding model ID (`model_id`) |
-| `LABRADOR_LLM_URL` | `http://127.0.0.1:11434/v1` | OpenAI-compatible base URL for `ask` and `serve` (`llm_url`); `fake` gives a canned answer |
-| `LABRADOR_LLM_MODEL` | `gemma4:e4b` | LLM name as the runtime knows it (`llm_model`); provisional until the answer benchmark picks one |
+| `LABRADOR_LLM_URL` | `http://127.0.0.1:11434/v1` | OpenAI-compatible base URL for `ask`, `serve` and `eval --answers` (`llm_url`); `fake` gives a canned answer |
+| `LABRADOR_LLM_MODEL` | `qwen3.5:4b` | LLM name as the runtime knows it (`llm_model`); picked by the [answer benchmark](../../evals/answers/REPORT.md) |
 | `LABRADOR_DEBUG` | unset | Any value prints a traceback when a file fails to index |
 
 Ollama reads its own variables. Set `OLLAMA_CONTEXT_LENGTH` to the same value as `--ctx` and `OLLAMA_NO_CLOUD=1` so
@@ -55,16 +55,16 @@ File types come from the extension sets `TEXT_EXT`, `DOCX_EXT`, `PDF_EXT` and `I
 
 ### Local LLM answers
 
-Used by `labrador ask` and Ask mode in `labrador serve`.
+Used by `labrador ask`, Ask mode in `labrador serve`, and `labrador eval --answers`. All three take the same LLM flags.
 
 | Field | Default | Flag |
 |---|---|---|
 | `llm_url` | `http://127.0.0.1:11434/v1` | `--llm-url`, `LABRADOR_LLM_URL` |
-| `llm_model` | `gemma4:e4b` | `--model`, `LABRADOR_LLM_MODEL` |
+| `llm_model` | `qwen3.5:4b` | `--model`, `LABRADOR_LLM_MODEL` |
 | `llm_extra` | `{"keep_alive": "2m"}` | `--llm-extra` (a JSON object merged over the default) |
 | `temperature` | `0.0` | |
 | `ask_search_k` | `10` | hits retrieved per question; raised to at least `--k` |
-| `ask_sources` | `5` | `ask --k` (hits packed into the prompt) |
+| `ask_sources` | `5` | `--k` on `ask` and `eval --answers` (hits packed into the prompt) |
 | `source_tokens` | `1500` | cap per source, counted as characters / 4 |
 | `context_tokens` | `4096` | `--ctx`; match `OLLAMA_CONTEXT_LENGTH` |
 | `allow_remote_llm` | `False` | `--allow-remote-llm` skips the loopback check and sends file text off-machine |
