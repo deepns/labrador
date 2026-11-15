@@ -208,6 +208,10 @@ the sources next to every answer, and the verbatim checks.
 {"type":"done","check":{"citations":[1],"unverified":[],"mrz":"valid","confidence":"high","refused":false},"retried":false}
 ```
 
+The server masks identifiers before sending. A masked `delta` carries `mask` and `raw` (as above), and each entry of
+`done.check.unverified` is either a plain string or a segment `{"mask": "•••••02C4", "raw": "L898902C4"}`. The page
+shows `mask` and swaps in `raw` on click, so the masking rules exist only in Python.
+
 Retrieval holds `model_lock`, because MPS is not re-entrant. Generation doesn't hold it, so a slow answer never
 blocks searches. Nothing from the model reaches `innerHTML`.
 
