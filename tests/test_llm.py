@@ -140,6 +140,9 @@ def test_structured_output_unsupported():
     c = make(lambda req: httpx.Response(501, json=body))
     with pytest.raises(LLMError, match="doesn't support structured output"):
         c.complete(MSGS, schema={"type": "object"})
+    c = make(lambda req: httpx.Response(501, text="Structured Output not supported"))
+    with pytest.raises(LLMError, match="doesn't support structured output"):
+        c.complete(MSGS, schema={"type": "object"})
     with pytest.raises(LLMError, match="501"):                 # other 501s keep the generic message
         make(lambda req: httpx.Response(501, text="nope")).complete(MSGS)
 
@@ -147,6 +150,9 @@ def test_structured_output_unsupported():
 def test_models():
     c = make(lambda req: httpx.Response(200, json={"data": [{"id": "a"}, {"id": "b-cloud"}]}))
     assert c.models() == ["a", "b-cloud"]
+    seen = []
+    make(lambda req: seen.append(req.extensions["timeout"]) or httpx.Response(200, json={"data": []})).models()
+    assert seen[0]["read"] == 5
 
 
 def test_fake_llm():

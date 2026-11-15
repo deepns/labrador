@@ -45,10 +45,17 @@ def _settings(a) -> Settings:
             sys.exit(f"--llm-extra is not valid JSON: {e}")
         if not isinstance(extra, dict):
             sys.exit("--llm-extra must be a JSON object, e.g. '{\"think\": false}'")
-        s.llm_extra = extra
+        s.llm_extra = {**s.llm_extra, **extra}                        # keep defaults such as keep_alive
     if getattr(a, "allow_remote_llm", False):
         s.allow_remote_llm = True
     return s
+
+
+def _positive_int(v: str) -> int:
+    n = int(v)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return n
 
 
 def _resolve_index(a) -> Path:
@@ -62,12 +69,12 @@ def _resolve_index(a) -> Path:
     sys.exit("No index yet. Run `labrador index <folder>` first, or pass --index.")
 
 
-def _open(a):
+def _open(a, s: Settings | None = None):
     from .embedder import load_embedder
     from .store import Store
     idx = _resolve_index(a)
     store = Store(idx)
-    s = _settings(a)
+    s = s or _settings(a)
     fp = store.get_meta("embedder")
     if fp and fp.startswith("fake"):
         s.backend = "fake"
@@ -142,6 +149,34 @@ def _status_line(c: dict, masked: bool) -> str:
     return " · ".join(parts)
 
 
+def _mask_check(c: dict, reveal: bool) -> tuple[dict, bool]:
+    """Mask the unverified tokens like the answer body (via answer.mask_text). Returns (check, anything masked)."""
+    from .answer import mask_text
+    if reveal:
+        return c, False
+    segs = [mask_text(t) for t in c["unverified"]]
+    toks = ["".join(x if isinstance(x, str) else x["mask"] for x in s) for s in segs]
+    return {**c, "unverified": toks}, any(not isinstance(x, str) for s in segs for x in s)
+
+
+def _collect_ask(events, reveal: bool) -> int:
+    """`ask --json`: print one JSON object (sources, warnings, final answer, check, retried). Returns the exit code."""
+    out = {"sources": [], "warnings": [], "answer": "", "check": None, "retried": False}
+    for e in events:
+        if e["type"] == "sources":
+            out["sources"], out["warnings"], out["answer"] = e["sources"], e["warnings"], ""
+        elif e["type"] == "delta":
+            out["answer"] += e["text"] if "text" in e else (e["raw"] if reveal else e["mask"])
+        elif e["type"] == "error":
+            print(f"error: {_printable(e['message'])}", file=sys.stderr)
+            return 1
+        elif e["type"] == "done":
+            out["check"], _ = _mask_check(e["check"], reveal)
+            out["retried"] = e["retried"]
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    return 0
+
+
 def _render_ask(events, reveal: bool) -> int:
     """Print ask() events: sources, streamed answer, then a status line. Returns the exit code."""
     masked = False
@@ -166,7 +201,8 @@ def _render_ask(events, reveal: bool) -> int:
             print(f"\nerror: {_printable(e['message'])}", file=sys.stderr)
             return 1
         elif e["type"] == "done":
-            print(f"\n\n{_status_line(e['check'], masked)}")
+            check, m = _mask_check(e["check"], reveal)
+            print(f"\n\n{_status_line(check, masked or m)}")
     return 0
 
 
@@ -183,14 +219,16 @@ def _warn_cloud_models(llm) -> None:
 def cmd_ask(a):
     from .answer import ask
     from .llm import LLMError, load_llm
+    s = _settings(a)
     try:                                            # validate the LLM flags before loading the embedder
-        llm = load_llm(_settings(a))
+        llm = load_llm(s)
     except LLMError as e:
         sys.exit(f"error: {e}")
-    store, emb, s = _open(a)
+    store, emb, s = _open(a, s)
     if hasattr(llm, "models"):
         _warn_cloud_models(llm)
-    sys.exit(_render_ask(ask(store, emb, llm, a.question, s, a.reveal, a.json), a.reveal))
+    events = ask(store, emb, llm, a.question, s, a.reveal, a.json)
+    sys.exit((_collect_ask if a.json else _render_ask)(events, a.reveal))
 
 
 def cmd_stats(a):
@@ -319,12 +357,12 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("ask", help="answer a question from your files with a local LLM"); common(sp)
     sp.add_argument("question")
     sp.add_argument("--reveal", action="store_true", help="show IDs and numbers unmasked")
-    sp.add_argument("--json", action="store_true", help="ask the model for a JSON reply (not streamed)")
+    sp.add_argument("--json", action="store_true", help="ask the model for a structured reply and print one JSON object (not streamed)")
     sp.add_argument("--model", help="LLM name as the runtime knows it (default: gemma4:e4b)")
     sp.add_argument("--llm-url", help="OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer)")
-    sp.add_argument("--llm-extra", help="JSON object passed to the runtime as-is")
-    sp.add_argument("-k", "--k", dest="sources", type=int, help="sources to give the model (default: 5)")
-    sp.add_argument("--ctx", type=int, help="prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH")
+    sp.add_argument("--llm-extra", help="JSON object passed to the runtime, merged over the default keep_alive")
+    sp.add_argument("-k", "--k", dest="sources", type=_positive_int, help="sources to give the model (default: 5)")
+    sp.add_argument("--ctx", type=_positive_int, help="prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH")
     sp.add_argument("--allow-remote-llm", action="store_true", help="skip the loopback check (sends files off-machine)")
     sp.set_defaults(fn=cmd_ask)
 
