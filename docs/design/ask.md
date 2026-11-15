@@ -336,7 +336,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | | | optional | not planned |
 | D1 | `docs/README.md`, `installation.md`, `usage/quickstart.md`; `cli.build_parser()`; `tests/test_docs.py` (links, flags, quick start) | | ~400 | docs | done (#9) |
 | D2 | `usage/` pages: indexing, searching, web UI, evaluating; README slimmed to the front door | D1 | ~400 | docs | not started |
-| D3 | `faq.md`, `security-privacy.md`, root `SECURITY.md` | D1 | ~350 | docs | done |
+| D3 | `faq.md`, `security-privacy.md`, root `SECURITY.md` | D1 | ~350 | docs | done (#13) |
 | D4 | `scripts/gen_cli_reference.py`, `reference/cli.md`, `reference/configuration.md` and their tests; `CHANGELOG.md` | D1 | ~350 | docs | not started |
 
 **Can start now, in parallel:** P3 (`cli.py`) and P4 (`web.py`, `static/`) both build on P2b and touch separate
