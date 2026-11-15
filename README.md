@@ -40,7 +40,7 @@ Your folder is only read, never written. Indexes live in `~/.labrador/indexes/<f
 | `labrador search "<query>"` | Search the last index | [Searching](docs/usage/searching.md) |
 | `labrador serve` | Web UI with thumbnails, filters and an Ask mode | [Web UI](docs/usage/web-ui.md) |
 | `labrador ask "<question>"` | Answer from your files with a local LLM, cited and checked | [Asking](docs/usage/asking.md) |
-| `labrador eval <file.jsonl>` | hit@1, hit@5, MRR@10 over labelled queries | [Evaluating](docs/usage/evaluating.md) |
+| `labrador eval <file.jsonl> [--answers]` | hit@1, hit@5, MRR@10 over labelled queries; with `--answers`, how well `ask` answers | [Evaluating](docs/usage/evaluating.md) |
 | `labrador stats` | Files and units by type | [Indexing](docs/usage/indexing.md#whats-in-the-index) |
 
 Everything else (installation, extras, the FAQ, security) is on the [documentation front page](docs/README.md).

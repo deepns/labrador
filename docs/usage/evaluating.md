@@ -83,4 +83,30 @@ uv run labrador eval bench/data/queries.jsonl --quiet --out evals/out/dim256.jso
 
 ## Answer quality
 
-`labrador eval --answers` (scoring `labrador ask` against `bench/data/qa.jsonl`) is coming in a later release.
+`labrador eval --answers` runs every question in a QA file through `labrador ask` and scores the answers. It takes
+the same LLM flags as `ask` (`--model`, `--llm-url`, `--llm-extra`, `--ctx`, `-k`, `--allow-remote-llm`) and
+needs a running LLM runtime:
+
+```bash
+uv run labrador eval bench/data/qa.jsonl --answers --out evals/out/answers.json
+uv run labrador eval bench/data/qa.jsonl --answers --model gemma4:e4b --out evals/out/answers-gemma.json
+```
+
+`bench/data/qa.jsonl` holds 27 questions over the benchmark's fictional `documents/` folder: ID and date lookups,
+questions the files can't answer, near misses, a current and an expired passport, and a note with a planted wrong
+number. The row fields are in `bench/make_bench.py`'s docstring.
+
+| Column | Meaning |
+|---|---|
+| `em` | Answerable rows whose answer contains the expected value |
+| `cite_hit` / `cite_prec` | A cited source is the right file / the share of citations that are |
+| `false_ans` | An answer to an unanswerable row, or a planted or stale value anywhere in the answer |
+| `false_ref` | A refusal on an answerable row |
+| `unverif` | The verbatim check flagged an ID or date |
+| `hit@5` | The right file was among the sources (separates retrieval misses from model misses) |
+| `sec/q` | Seconds per question |
+
+Scoring is deterministic and needs no LLM judge. It scores the streamed answer, the path `ask` shows. An LLM error
+counts as a refusal on that row, and the command exits 1 at the end. The `--out` file also records the model, URL,
+options and context size. [evals/answers/REPORT.md](../../evals/answers/REPORT.md) compares the default model
+with the alternatives.
