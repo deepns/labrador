@@ -335,10 +335,10 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | done (#4) |
 | P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | done (#5) |
 | P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | done (#11) |
-| P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | in review |
+| P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | done (#14) |
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | done (#15) |
 | P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | done (#10) |
-| P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | in review |
+| P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | done (#19) |
 | P6 | `--images`: vision models read the original file | P5b | ~150 | quality | not started |
 | P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | | | optional | not planned |
 | D1 | `docs/README.md`, `installation.md`, `usage/quickstart.md`; `cli.build_parser()`; `tests/test_docs.py` (links, flags, quick start) | | ~400 | docs | done (#9) |
