@@ -47,7 +47,7 @@ model that fits your RAM:
 | RAM | Pull | Notes |
 |---|---|---|
 | 8 GB | `ollama pull gemma4:e2b` or `qwen3.5:2b` | the smallest |
-| 16 GB | `ollama pull gemma4:e4b` or `qwen3.5:4b` | the default tier |
+| 16 GB | `ollama pull qwen3.5:4b` (the default) or `gemma4:e4b` | the default tier; see the [QA benchmark](../evals/answers/REPORT.md) |
 | 32 GB | `ollama pull gemma4:12b` or `qwen3.5:9b` | better at citing and at conflicts |
 | 64 GB | `ollama pull gemma4:26b-a4b` or `gemma4:31b` | the most accurate |
 

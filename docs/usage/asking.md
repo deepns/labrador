@@ -7,7 +7,7 @@ files to the model as numbered sources, and checks the answer in code before sho
 
 1. An index: `labrador index <folder>` (see the [quick start](quickstart.md)).
 2. A local LLM runtime that serves OpenAI-compatible `/v1/chat/completions`. The default is
-   [Ollama](https://ollama.com) with `ollama pull gemma4:e4b`. See [Installation](../installation.md#local-answers-optional)
+   [Ollama](https://ollama.com) with `ollama pull qwen3.5:4b`, the model the [QA benchmark](../../evals/answers/REPORT.md) picked. See [Installation](../installation.md#local-answers-optional)
    for model sizes by RAM and the environment variables to set.
 
 ## Ask
@@ -40,7 +40,9 @@ labrador ask "my passport number" --ctx 8192 -k 8                  # larger prom
 runtime with structured-output support. Ollama's MLX runner returns an error for it (HTTP 501); use plain asking
 there.
 
-`--llm-extra '{"think": false}'` passes a JSON object to the runtime, merged over the default `keep_alive`. The
+`--llm-extra '{"reasoning_effort": "none"}'` passes a JSON object to the runtime, merged over the default
+`keep_alive`; this one turns off a model's thinking (Ollama ignores `think` on `/v1`). Thinking is faster off but
+cites worse sources, so the default keeps it on. The
 defaults also come from `LABRADOR_LLM_URL` and `LABRADOR_LLM_MODEL`.
 
 The first question after the model has been idle loads it into memory and can take a minute or two (the request

@@ -9,7 +9,7 @@ from pathlib import Path
 
 MODEL_ID = os.environ.get("LABRADOR_MODEL", "google/embeddinggemma-2")
 LLM_URL = os.environ.get("LABRADOR_LLM_URL", "http://127.0.0.1:11434/v1")
-LLM_MODEL = os.environ.get("LABRADOR_LLM_MODEL", "gemma4:e4b")   # provisional until the QA benchmark picks one
+LLM_MODEL = os.environ.get("LABRADOR_LLM_MODEL", "qwen3.5:4b")   # picked by the QA benchmark (evals/answers/REPORT.md)
 HOME = Path(os.environ.get("LABRADOR_HOME", Path.home() / ".labrador"))
 
 TEXT_EXT = {".txt", ".md", ".markdown", ".rst", ".csv", ".json", ".yaml", ".yml", ".log",

@@ -18,6 +18,7 @@ import re
 import shutil
 import sys
 import textwrap
+import time
 from pathlib import Path
 
 from .config import HOME, Settings, index_dir_for
@@ -288,7 +289,88 @@ def cmd_watch(a):
     watch(ix)
 
 
+def _qa_match(pattern: str, text: str) -> bool:
+    """"re:<regex>" searches; anything else is a case-insensitive substring."""
+    return bool(re.search(pattern[3:], text)) if pattern.startswith("re:") else pattern.lower() in text.lower()
+
+
+def _qa_row(r, sources, text, check, retried, secs) -> dict:
+    ans, refused = r.get("answerable", True), check["refused"]
+    expect = r["expect"] if isinstance(r["expect"], list) else [r["expect"]]
+    cited = [sources[n - 1] for n in check["citations"] if 0 < n <= len(sources)]
+    bad = not refused and any(_qa_match(b, text) for b in r.get("bad", []))
+    return {**r, "refused": refused, "em": ans and not refused and _qa_match(r["answer"], text),
+            "cite_hit": ans and any(c in expect for c in cited),
+            "cite_prec": sum(c in expect for c in cited) / len(cited) if ans and cited else None,
+            "false_answer": (not ans and not refused) or bad, "false_refusal": ans and refused,
+            "unverified": bool(check["unverified"]), "hit5": ans and any(x in expect for x in sources),
+            "confidence": check["confidence"], "retried": retried, "seconds": secs,
+            "answer_text": text, "sources": sources, "cited": cited}
+
+
+def _qa_rates(rs) -> dict:
+    """Each rate is over the rows where it applies (None when none do)."""
+    def rate(key, rows):
+        return sum(bool(x[key]) for x in rows) / len(rows) if rows else None
+    a = [x for x in rs if x.get("answerable", True)]
+    cp = [x["cite_prec"] for x in rs if x["cite_prec"] is not None]
+    return {"n": len(rs), "em": rate("em", a), "cite_hit": rate("cite_hit", a),
+            "cite_prec": sum(cp) / len(cp) if cp else None, "false_ans": rate("false_answer", rs),
+            "false_ref": rate("false_refusal", a), "unverif": rate("unverified", rs),
+            "hit@5": rate("hit5", a), "sec/q": sum(x["seconds"] for x in rs) / len(rs) if rs else None}
+
+
+def cmd_eval_answers(a):
+    from .answer import ask
+    from .llm import LLMError, load_llm
+    s = _settings(a)
+    try:
+        llm = load_llm(s)
+    except LLMError as e:
+        sys.exit(f"error: {e}")
+    store, emb, s = _open(a, s)
+    rows = [json.loads(l) for l in Path(a.file).read_text(encoding="utf-8").splitlines() if l.strip()]
+    if a.category:
+        rows = [r for r in rows if r.get("category") == a.category]
+    results = []
+    for r in rows:
+        t0, sources, text, check, retried = time.perf_counter(), [], "", {}, False
+        # Score the streamed text path (json_mode=False): Ollama's MLX runner returns 501 for structured output.
+        for ev in ask(store, emb, llm, r["question"], s, reveal=True):
+            if ev["type"] == "error":
+                sys.exit(f"error: {ev['message']}")
+            if ev["type"] == "sources":
+                sources = [x["rel_path"] for x in ev["sources"]]
+            elif ev["type"] == "delta":
+                text += ev.get("text") or ev.get("raw") or ""
+            elif ev["type"] == "done":
+                check, retried = ev["check"], ev["retried"]
+        res = _qa_row(r, sources, text, check, retried, time.perf_counter() - t0)
+        results.append(res)
+        if not a.quiet:
+            good = (res["em"] if r.get("answerable", True) else True) and not res["false_answer"]
+            print(f"{'✓' if good else '✗':>4}  [{r.get('category', '-')}] {r['question']}  -> "
+                  f"{_printable(' '.join(text.split()))[:80]}")
+    f = lambda v: "-" if v is None else f"{v:.2f}"
+    cols = ["em", "cite_hit", "cite_prec", "false_ans", "false_ref", "unverif", "hit@5"]
+    print(f"\n{'category':<20} {'n':>3}  " + "  ".join(f"{c:>9}" for c in cols) + "  sec/q")
+    by_cat = {c: _qa_rates([x for x in results if x.get("category", "-") == c])
+              for c in sorted({x.get("category", "-") for x in results})}
+    summary = _qa_rates(results)
+    for c, m in {**by_cat, "ALL": summary}.items():
+        print(f"{c:<20} {m['n']:>3}  " + "  ".join(f"{f(m[k]):>9}" for k in cols) + f"  {m['sec/q'] or 0:>5.1f}")
+    if a.out:
+        cfg = {"model": s.llm_model, "llm_url": s.llm_url, "llm_extra": s.llm_extra, "temperature": s.temperature,
+               "context_tokens": s.context_tokens, "ask_sources": s.ask_sources, "ask_search_k": s.ask_search_k,
+               "embedder": store.get_meta("embedder")}
+        Path(a.out).write_text(json.dumps({"config": cfg, "summary": summary, "by_category": by_cat,
+                                           "results": results}, indent=2, ensure_ascii=False))
+        print(f"wrote {a.out}")
+
+
 def cmd_eval(a):
+    if a.answers:
+        return cmd_eval_answers(a)
     from .search import search
     store, emb, _ = _open(a)
     rows = [json.loads(l) for l in Path(a.file).read_text(encoding="utf-8").splitlines() if l.strip()]
@@ -363,7 +445,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.set_defaults(fn=cmd_search)
 
     def llm_flags(sp):
-        sp.add_argument("--model", help="LLM name as the runtime knows it (default: gemma4:e4b)")
+        sp.add_argument("--model", help="LLM name as the runtime knows it (default: qwen3.5:4b)")
         sp.add_argument("--llm-url", help="OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer)")
         sp.add_argument("--llm-extra", help="JSON object passed to the runtime, merged over the default keep_alive")
         sp.add_argument("--ctx", type=_positive_int, help="prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH")
@@ -389,8 +471,11 @@ def build_parser() -> argparse.ArgumentParser:
     sp = sub.add_parser("stats", help="what's in the index"); common(sp)
     sp.set_defaults(fn=cmd_stats)
 
-    sp = sub.add_parser("eval", help="hit@k / MRR over a JSONL of {query, expect[, page]}"); common(sp)
+    sp = sub.add_parser("eval", help="hit@k / MRR over {query, expect[, page]} rows; with --answers, score `ask` over qa.jsonl"); common(sp)
     sp.add_argument("file")
+    sp.add_argument("--answers", action="store_true", help="score `ask` answers over a qa.jsonl instead of search ranking")
+    sp.add_argument("-k", "--k", dest="sources", type=_positive_int, help="with --answers: sources to give the model (default: 5)")
+    llm_flags(sp)
     sp.add_argument("--category", help="only queries of this category")
     sp.add_argument("--quiet", action="store_true", help="only the summary table")
     sp.add_argument("--out", help="write per-query results as JSON (to compare configs)")
