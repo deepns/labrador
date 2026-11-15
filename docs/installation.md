@@ -42,14 +42,16 @@ Run it on a new machine, and again after changing `embedder.py`.
 ## Local answers (optional)
 
 `labrador ask` needs a local LLM runtime; the embedder never does. Install [Ollama](https://ollama.com), then pull a
-4-bit model that fits your RAM:
+model that fits your RAM:
 
-| RAM | Model | Pull |
+| RAM | Pull | Notes |
 |---|---|---|
-| 8 GB | Gemma 4 E2B or Qwen3.5-2B | text only |
-| 16 GB | Gemma 4 E4B or Qwen3.5-4B (default tier) | `ollama pull gemma4:e4b` |
-| 32 GB | Gemma 4 12B or Qwen3.5-9B | better at citing and at conflicts |
-| 64 GB | Gemma 4 26B-A4B or 31B | the most accurate |
+| 8 GB | `ollama pull gemma4:e2b` or `qwen3.5:2b` | the smallest |
+| 16 GB | `ollama pull gemma4:e4b` or `qwen3.5:4b` | the default tier |
+| 32 GB | `ollama pull gemma4:12b` or `qwen3.5:9b` | better at citing and at conflicts |
+| 64 GB | `ollama pull gemma4:26b-a4b` or `gemma4:31b` | the most accurate |
+
+For an explicit 4-bit build, add the quantization to the tag, e.g. `gemma4:e4b-it-q4_K_M`.
 
 Pick another model with `--model` (or `LABRADOR_LLM_MODEL`). Before starting Ollama, set:
 
