@@ -48,3 +48,4 @@ body.ask .chip[data-only] { display: none; }
 #text { white-space: pre-wrap; font-size: 16px; margin-top: 14px; }
 #check { color: var(--muted); font-size: 13px; margin-top: 10px; }
 .masked { background: var(--chip); border-radius: 4px; padding: 0 3px; cursor: pointer; }
+[hidden] { display: none !important; }
