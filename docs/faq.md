@@ -51,8 +51,8 @@ the index with no login. See [Security and privacy](security-privacy.md#the-web-
 
 ## What about `labrador ask`?
 
-It answers questions from your files with a local LLM, with citations and checks. It is still landing; see the
-[design](design/ask.md) for what it will do. This FAQ will cover it once it ships.
+It answers questions from your files with a local LLM (Ollama by default), with numbered sources, checks done in
+code and IDs masked unless you pass `--reveal`. See [Asking questions](usage/asking.md).
 
 ## Why are search snippets not masked?
 
