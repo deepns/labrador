@@ -57,7 +57,7 @@ uv run labrador watch ~/Documents/whatever          # keeps the index fresh as f
 |---|---|
 | `labrador index <folder> [--rebuild] [--dim 256] [--image-tokens 560] [--no-ocr]` | First pass, then only new/changed files; removed files drop out |
 | `labrador search "<query>" [-k 10] [--only text\|image\|pdf\|visual] [--json]` | Search the last index (or `--index DIR`) |
-| `labrador serve [--allow-lan]` | Web UI with thumbnails, filters, open-at-page, Show in Finder. Loopback-only unless you pass `--allow-lan` (which exposes your index to the network) |
+| `labrador serve [--allow-lan]` | Web UI with thumbnails, filters, open-at-page, Show in Finder, and an Ask mode (takes the same LLM flags as `ask`). Loopback-only unless you pass `--allow-lan` (which exposes your index to the network) |
 | `labrador ask "<question>" [--reveal] [--json] [--model M] [--llm-url URL] [--ctx N] [-k N]` | Answer from your files with a local LLM (Ollama by default); cited, checked, IDs masked. See [Asking](docs/usage/asking.md) |
 | `labrador watch <folder>` | Index, then re-index files 2 s after they stop changing |
 | `labrador eval <file.jsonl> [--category X] [--quiet] [--out r.json]` | hit@1, hit@5, MRR@10 overall, per category and for hard negatives |

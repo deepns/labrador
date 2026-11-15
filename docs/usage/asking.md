@@ -63,6 +63,17 @@ times out after 5 minutes).
 
 Treat `low` as "go and look at the source".
 
+## In the web UI
+
+```bash
+labrador serve
+```
+
+Flip the header toggle from Search to Ask, type a question and press Enter (nothing fires while you type). Sources
+link to the file at the right page, and the status line shows the same checks as the terminal. Masked values show as
+`•••••02C3`; click one to show it, click again to hide it. `serve` takes the same LLM flags as `ask` (`--model`,
+`--llm-url`, `--llm-extra`, `--ctx`, `--allow-remote-llm`) and refuses a non-loopback `--llm-url` the same way.
+
 ## Masking
 
 IDs, card numbers and other long codes print masked (`•••••02C3`) unless you pass `--reveal`. The status line says

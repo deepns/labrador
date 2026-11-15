@@ -11,7 +11,7 @@ behind the `ask` controls see the [Ask design](design/ask.md#security-and-privac
 | Read-only source folder, private index permissions, loopback-only web UI with Host/Origin checks and CSP | Merged |
 | Loopback-only LLM client (`labrador/llm.py`) | Merged |
 | Answer checks and masking (`labrador/answer.py`) and `labrador ask` (CLI) | Merged |
-| Ask mode in the web UI | Not started |
+| Ask mode in the web UI | Merged |
 | `labrador search` and the web search results | Show snippets **unmasked** |
 
 Masking exists only inside `ask`. Whether it should apply to `search` too is undecided.
@@ -50,6 +50,10 @@ sensitive as the files themselves.
   frame-ancestors 'none'`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and
   `Cache-Control: no-store` unless a route sets its own. The CSP also applies to indexed `.html` files opened
   from the UI, so they can't run scripts on labrador's origin.
+- **Ask is plain text and JSON-only.** `POST /api/ask` requires `Content-Type: application/json` (415 otherwise),
+  which also forces a CORS preflight for cross-site callers, on top of the Origin check. Answers and sources are
+  rendered with `textContent`, never `innerHTML`, and identifiers are masked on the server; the page only swaps in
+  the raw value when you click it.
 - **Only indexed files.** `/file/{fid}` and `/reveal/{fid}` take a file ID from the index, never a path.
 - **No LAN exposure by default.** `serve` refuses a non-loopback `--host` unless you also pass `--allow-lan`.
   That exposes your whole index to the network, with no login. Don't, unless the network is yours alone.

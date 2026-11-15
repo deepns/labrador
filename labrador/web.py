@@ -1,11 +1,17 @@
 """Small local web UI (Starlette). Binds to 127.0.0.1 only; serves only files that are in the index.
 
+`POST /api/ask` (JSON body, application/json only) streams answer.ask() events as NDJSON, one per line. The server
+masks identifiers (the `done` event's unverified tokens too) and sends each as {"mask", "raw"}; the page shows `mask`
+and swaps in `raw` on click, so masking rules live only in answer.py. The model_lock covers retrieval, never generation.
+
 A pure-ASGI middleware adds the browser protections: Host allow-list (blocks DNS rebinding), Origin check on
 unsafe methods (blocks cross-site POSTs), and CSP / nosniff / no-referrer / no-store headers on every response.
 """
 
 from __future__ import annotations
 
+import dataclasses
+import json
 import subprocess
 import sys
 import threading
@@ -15,10 +21,19 @@ from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import Headers
 from starlette.middleware import Middleware
-from starlette.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
+from starlette.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    Response,
+    StreamingResponse,
+)
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from .answer import ask, mask_text
+from .config import Settings
 from .search import search
 
 STATIC = Path(__file__).parent / "static"
@@ -65,8 +80,44 @@ class WebGuard:
         await self.app(scope, receive, send_with_headers)
 
 
-def create_app(store, emb, allowed_hosts=None):
+class LockedEmbedder:
+    """Takes the lock around each embedding call. ask() interleaves retrieval and generation (and retries by
+    retrieving again), so the lock can't wrap the whole generator: a slow answer would block every search."""
+
+    def __init__(self, emb, lock):
+        self._emb, self._lock = emb, lock
+
+    def __getattr__(self, name):
+        attr = getattr(self._emb, name)
+        if not name.startswith("embed_"):
+            return attr
+
+        def locked(*a, **kw):
+            with self._lock:
+                return attr(*a, **kw)
+        return locked
+
+
+def _mask_token(tok: str):
+    segs = mask_text(tok)
+    if all(isinstance(x, str) for x in segs):
+        return tok
+    return {"mask": "".join(x if isinstance(x, str) else x["mask"] for x in segs), "raw": tok}
+
+
+def _ndjson(events):
+    try:
+        for e in events:
+            if e["type"] == "done":
+                e = {**e, "check": {**e["check"], "unverified": [_mask_token(t) for t in e["check"]["unverified"]]}}
+            yield json.dumps(e, ensure_ascii=False) + "\n"
+    except Exception:       # no tracebacks to the browser
+        yield json.dumps({"type": "error", "message": "Something went wrong while answering."}) + "\n"
+
+
+def create_app(store, emb, allowed_hosts=None, llm=None, settings=None):
     model_lock = threading.Lock()   # one model, one inference at a time (MPS isn't re-entrant)
+    settings = settings or Settings()
 
     def _search(q, k, only):
         with model_lock:
@@ -82,6 +133,28 @@ def create_app(store, emb, allowed_hosts=None):
         k = min(int(req.query_params.get("k", 24)), 100)
         only = req.query_params.get("only") or None
         return JSONResponse(await run_in_threadpool(_search, q, k, only))
+
+    async def api_ask(req):
+        if req.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
+            return PlainTextResponse("Send JSON with content-type: application/json", status_code=415)
+        try:
+            body = await req.json()
+        except ValueError:
+            body = None
+        q = body.get("q") if isinstance(body, dict) else None
+        k = body.get("k", settings.ask_sources) if isinstance(body, dict) else None
+        if not isinstance(q, str) or not q.strip() or isinstance(k, bool) or not isinstance(k, int):
+            return PlainTextResponse("Expected a JSON object with a non-empty string q (and an integer k)",
+                                     status_code=400)
+        if body.get("images"):
+            return PlainTextResponse("Asking about images is not available yet", status_code=400)
+        if llm is None:
+            return PlainTextResponse("No LLM configured; restart `labrador serve` with --llm-url or --model",
+                                     status_code=503)
+        k = max(1, min(k, 20))
+        s = dataclasses.replace(settings, ask_sources=k, ask_search_k=max(settings.ask_search_k, k))
+        events = ask(store, LockedEmbedder(emb, model_lock), llm, q.strip(), s, reveal=False)
+        return StreamingResponse(_ndjson(events), media_type="application/x-ndjson")
 
     async def api_stats(_):
         return JSONResponse(store.stats())
@@ -116,6 +189,7 @@ def create_app(store, emb, allowed_hosts=None):
     return Starlette(routes=[
         Route("/", index),
         Route("/api/search", api_search),
+        Route("/api/ask", api_ask, methods=["POST"]),
         Route("/api/stats", api_stats),
         Route("/media/{name}", media),
         Route("/file/{fid:int}", original),

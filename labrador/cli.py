@@ -261,10 +261,18 @@ def cmd_serve(a):
     allowed = _serve_hosts(a)
     import uvicorn
 
+    from .llm import LLMError, load_llm
     from .web import create_app
-    store, emb, s = _open(a)
+    s = _settings(a)
+    try:                                            # validate the LLM flags before loading the embedder
+        llm = load_llm(s)
+    except LLMError as e:
+        sys.exit(f"error: {e}")
+    store, emb, s = _open(a, s)
+    if hasattr(llm, "models"):
+        _warn_cloud_models(llm)
     print(f"Open http://{a.host}:{a.port}")
-    uvicorn.run(create_app(store, emb, allowed), host=a.host, port=a.port, log_level="warning")
+    uvicorn.run(create_app(store, emb, allowed, llm, s), host=a.host, port=a.port, log_level="warning")
 
 
 def cmd_watch(a):
@@ -354,21 +362,25 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=cmd_search)
 
+    def llm_flags(sp):
+        sp.add_argument("--model", help="LLM name as the runtime knows it (default: gemma4:e4b)")
+        sp.add_argument("--llm-url", help="OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer)")
+        sp.add_argument("--llm-extra", help="JSON object passed to the runtime, merged over the default keep_alive")
+        sp.add_argument("--ctx", type=_positive_int, help="prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH")
+        sp.add_argument("--allow-remote-llm", action="store_true", help="skip the loopback check (sends files off-machine)")
+
     sp = sub.add_parser("ask", help="answer a question from your files with a local LLM"); common(sp)
     sp.add_argument("question")
     sp.add_argument("--reveal", action="store_true", help="show IDs and numbers unmasked")
     sp.add_argument("--json", action="store_true", help="ask the model for a structured reply and print one JSON object (not streamed)")
-    sp.add_argument("--model", help="LLM name as the runtime knows it (default: gemma4:e4b)")
-    sp.add_argument("--llm-url", help="OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer)")
-    sp.add_argument("--llm-extra", help="JSON object passed to the runtime, merged over the default keep_alive")
     sp.add_argument("-k", "--k", dest="sources", type=_positive_int, help="sources to give the model (default: 5)")
-    sp.add_argument("--ctx", type=_positive_int, help="prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH")
-    sp.add_argument("--allow-remote-llm", action="store_true", help="skip the loopback check (sends files off-machine)")
+    llm_flags(sp)
     sp.set_defaults(fn=cmd_ask)
 
     sp = sub.add_parser("serve", help="web UI"); common(sp)
     sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8765)
     sp.add_argument("--allow-lan", action="store_true", help="allow a non-loopback --host (exposes the index)")
+    llm_flags(sp)
     sp.set_defaults(fn=cmd_serve)
 
     sp = sub.add_parser("watch", help="index, then re-index files as they change"); common(sp, True)
