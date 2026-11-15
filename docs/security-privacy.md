@@ -10,8 +10,8 @@ behind the `ask` controls see the [Ask design](design/ask.md#security-and-privac
 |---|---|
 | Read-only source folder, private index permissions, loopback-only web UI with Host/Origin checks and CSP | Merged |
 | Loopback-only LLM client (`labrador/llm.py`) | Merged |
-| Answer checks and masking (`labrador/answer.py`) | Merged, as library code |
-| `labrador ask` (CLI) and Ask mode in the web UI | Still landing; nothing here is reachable from the command line yet |
+| Answer checks and masking (`labrador/answer.py`) and `labrador ask` (CLI) | Merged |
+| Ask mode in the web UI | Not started |
 | `labrador search` and the web search results | Show snippets **unmasked** |
 
 Masking exists only inside `ask`. Whether it should apply to `search` too is undecided.
@@ -60,8 +60,8 @@ There is no authentication: any program running as you on this machine can use t
 
 - **Loopback only.** `llm.require_loopback` resolves the LLM URL's host and refuses it unless every resolved
   address is loopback, so a hostname that points off the machine is caught too.
-- **Opt-out is loud.** The `allow_remote_llm` setting skips the check and prints a warning on every run; your
-  question and file excerpts then go to that server. Its CLI flag arrives with `ask`.
+- **Opt-out is loud.** `--allow-remote-llm` (setting `allow_remote_llm`) skips the check and prints a warning on
+  every run; your question and file excerpts then go to that server.
 - **No proxies, no redirects.** The client ignores `HTTP_PROXY` and similar variables and doesn't follow redirects,
   so a request can't be routed off the machine behind your back.
 - **Runtime-side cloud features are outside labrador.** Ollama can offer cloud models and web search. Set
