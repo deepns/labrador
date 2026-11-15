@@ -5,6 +5,9 @@ Notable changes to labrador, newest first. Phases (P0–P7, D1–D4) are rows of
 
 ## Unreleased
 
+- D2 (#18): usage pages for [indexing](docs/usage/indexing.md), [searching](docs/usage/searching.md), the
+  [web UI](docs/usage/web-ui.md) and [evaluating](docs/usage/evaluating.md); the README is cut down to a front door
+  that links to them.
 - D4: [CLI reference](docs/reference/cli.md) generated from the parser by `scripts/gen_cli_reference.py`, with a
   test that fails when it is stale; [configuration reference](docs/reference/configuration.md); this changelog.
 - P5b (#19): `labrador eval --answers` scores `ask` over `bench/data/qa.jsonl` and takes the LLM flags; the
