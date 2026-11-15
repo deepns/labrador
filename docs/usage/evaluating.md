@@ -1,7 +1,8 @@
 # Evaluating
 
 `labrador eval` runs a file of labelled queries against an index and reports how often the right file comes first.
-Use it to compare settings (`--dim`, vision token budgets, ranking changes) on the same folder.
+Use it to compare settings (`--dim`, vision token budgets, ranking changes) on the same folder. With `--answers` it
+scores `labrador ask` instead; see [Answer quality](#answer-quality).
 
 ```bash
 uv run labrador index ~/labrador-sample

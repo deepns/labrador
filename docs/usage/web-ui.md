@@ -51,7 +51,7 @@ Switching back to Search cancels an answer in progress and runs a fresh search f
 `serve` takes the same LLM flags as `ask`:
 
 ```bash
-uv run labrador serve --model qwen3.5:4b --ctx 8192
+uv run labrador serve --model gemma4:e4b --ctx 8192
 ```
 
 ## Privacy and the network
