@@ -42,8 +42,10 @@ function setMode(m) {
   $("m-search").setAttribute("aria-pressed", m === "search"); $("m-ask").setAttribute("aria-pressed", m === "ask");
   $("q").placeholder = m === "ask" ? "Ask a question about your files, then press Enter…" : "Describe what you're looking for…";
   $("answer").hidden = m !== "ask"; $("results").hidden = m === "ask"; $("empty").hidden = m === "ask";
+  clearTimeout(timer); seq++;                    // drop a pending or in-flight search
   if (abort) abort.abort();
-  if (m === "search") run();
+  if (m === "ask") $("stat").textContent = "";
+  else run();
 }
 $("m-search").addEventListener("click", () => setMode("search"));
 $("m-ask").addEventListener("click", () => setMode("ask"));

@@ -60,7 +60,7 @@ uv run labrador watch ~/Documents/whatever          # keeps the index fresh as f
 | `labrador serve [--allow-lan]` | Web UI with thumbnails, filters, open-at-page, Show in Finder, and an Ask mode (takes the same LLM flags as `ask`). Loopback-only unless you pass `--allow-lan` (which exposes your index to the network) |
 | `labrador ask "<question>" [--reveal] [--json] [--model M] [--llm-url URL] [--ctx N] [-k N]` | Answer from your files with a local LLM (Ollama by default); cited, checked, IDs masked. See [Asking](docs/usage/asking.md) |
 | `labrador watch <folder>` | Index, then re-index files 2 s after they stop changing |
-| `labrador eval <file.jsonl> [--category X] [--quiet] [--out r.json]` | hit@1, hit@5, MRR@10 overall, per category and for hard negatives |
+| `labrador eval <file.jsonl> [--answers] [--category X] [--quiet] [--out r.json]` | hit@1, hit@5, MRR@10 overall, per category and for hard negatives; add `--answers` (with `bench/data/qa.jsonl` and the `ask` LLM flags) to score `ask` answers: EM, citation hit/precision, false answers and refusals, hit@5 |
 | `labrador stats` | Files and units by type |
 
 Indexes live in `~/.labrador/indexes/<folder>-<hash>/` (`index.db` + `media/` thumbnails), private to you (directories `0700`, files `0600`). Your folder is only read, never written.
