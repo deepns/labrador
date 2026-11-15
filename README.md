@@ -43,7 +43,8 @@ Your folder is only read, never written. Indexes live in `~/.labrador/indexes/<f
 | `labrador eval <file.jsonl> [--answers]` | hit@1, hit@5, MRR@10 over labelled queries; with `--answers`, how well `ask` answers | [Evaluating](docs/usage/evaluating.md) |
 | `labrador stats` | Files and units by type | [Indexing](docs/usage/indexing.md#whats-in-the-index) |
 
-Everything else (installation, extras, the FAQ, security) is on the [documentation front page](docs/README.md).
+Every flag is in the [CLI reference](docs/reference/cli.md). Everything else (installation, extras, the FAQ,
+security) is on the [documentation front page](docs/README.md).
 
 ## Reading the code
 
