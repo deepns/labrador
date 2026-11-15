@@ -4,6 +4,7 @@
   labrador search "dog on a beach" -k 5
   labrador serve                          # web UI on http://127.0.0.1:8765
   labrador watch  ~/Documents/sample      # keep the index fresh while files change
+  labrador ask    "what's my passport number"   # answer from your files with a local LLM (see docs/usage/asking.md)
   labrador stats
   labrador eval   evals/sample_queries.jsonl
 """
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import re
 import shutil
 import sys
 import textwrap
@@ -31,6 +33,21 @@ def _settings(a) -> Settings:
         s.ocr = False
     if getattr(a, "no_page_images", False):
         s.pdf_page_images = False
+    for k, attr in (("llm_url", "llm_url"), ("model", "llm_model"), ("ctx", "context_tokens")):   # ask flags
+        if getattr(a, k, None) is not None:
+            setattr(s, attr, getattr(a, k))
+    if getattr(a, "sources", None) is not None:                        # `ask --k`: sources packed into the prompt
+        s.ask_sources, s.ask_search_k = a.sources, max(s.ask_search_k, a.sources)
+    if getattr(a, "llm_extra", None) is not None:
+        try:
+            extra = json.loads(a.llm_extra)
+        except json.JSONDecodeError as e:
+            sys.exit(f"--llm-extra is not valid JSON: {e}")
+        if not isinstance(extra, dict):
+            sys.exit("--llm-extra must be a JSON object, e.g. '{\"think\": false}'")
+        s.llm_extra = extra
+    if getattr(a, "allow_remote_llm", False):
+        s.allow_remote_llm = True
     return s
 
 
@@ -97,6 +114,83 @@ def cmd_search(a):
             print(textwrap.indent(textwrap.shorten(h.snippet.replace("\n", " "), 220), "      "))
         if h.media:
             print(f"      picture: {store.media_dir / h.media}")
+
+
+def _printable(s: str) -> str:
+    """Strip ESC and other C0/C1 control chars (keeps \\n, \\t): model output and paths are untrusted."""
+    return re.sub(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]", "", str(s))
+
+
+def _status_line(c: dict, masked: bool) -> str:
+    if c["refused"]:
+        return "refused"
+    if c["unverified"]:
+        parts = [f"✗ unverified: {', '.join(c['unverified'])}"]
+    elif c["citations"] and not c["bad_citations"]:
+        cites = ", ".join(f"[{n}]" for n in c["citations"])
+        shaky = c["mrz"] == "invalid" or c["confidence"] == "low"
+        parts = [f"✗ check the source {cites}" if shaky else f"✓ verified against {cites}"]
+    else:
+        parts = ["✗ unverified"]
+    if c["bad_citations"]:
+        parts.append(f"bad citations: {', '.join(c['bad_citations'])}")
+    if c["mrz"]:
+        parts.append("MRZ check digits " + c["mrz"].replace("invalid", "INVALID"))
+    parts.append(f"{c['confidence']} confidence")
+    if masked:
+        parts.append("--reveal to show")
+    return " · ".join(parts)
+
+
+def _render_ask(events, reveal: bool) -> int:
+    """Print ask() events: sources, streamed answer, then a status line. Returns the exit code."""
+    masked = False
+    for e in events:
+        if e["type"] == "sources":
+            print("Sources")
+            for x in e["sources"]:
+                page = f" p.{x['page']}" if x["page"] else ""
+                date = f", {x['modified']}" if x["modified"] else ""
+                print(f"  [{x['n']}] {_printable(x['rel_path'])}{page}  ({_printable(x['kind'])}{date})")
+            for w in e["warnings"]:
+                print(f"warning: {_printable(w)}", file=sys.stderr)
+            print()
+        elif e["type"] == "delta":
+            seg = e["text"] if "text" in e else (e["raw"] if reveal else e["mask"])
+            masked = masked or "mask" in e and not reveal
+            print(_printable(seg), end="", flush=True)
+        elif e["type"] == "retry":
+            print(f"\n(no answer yet, retrying with \u201c{_printable(e['term'])}\u201d)", flush=True)
+            masked = False
+        elif e["type"] == "error":
+            print(f"\nerror: {_printable(e['message'])}", file=sys.stderr)
+            return 1
+        elif e["type"] == "done":
+            print(f"\n\n{_status_line(e['check'], masked)}")
+    return 0
+
+
+def _warn_cloud_models(llm) -> None:
+    try:
+        cloud = any(m.endswith("-cloud") for m in llm.models())
+    except Exception:                                  # best effort: a missing or odd /models is not an error
+        return
+    if cloud:
+        print("warning: runtime lists a cloud model; set OLLAMA_NO_CLOUD=1 so nothing leaves the machine",
+              file=sys.stderr)
+
+
+def cmd_ask(a):
+    from .answer import ask
+    from .llm import LLMError, load_llm
+    try:                                            # validate the LLM flags before loading the embedder
+        llm = load_llm(_settings(a))
+    except LLMError as e:
+        sys.exit(f"error: {e}")
+    store, emb, s = _open(a)
+    if hasattr(llm, "models"):
+        _warn_cloud_models(llm)
+    sys.exit(_render_ask(ask(store, emb, llm, a.question, s, a.reveal, a.json), a.reveal))
 
 
 def cmd_stats(a):
@@ -221,6 +315,18 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--only", choices=["text", "image", "pdf", "visual"])
     sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=cmd_search)
+
+    sp = sub.add_parser("ask", help="answer a question from your files with a local LLM"); common(sp)
+    sp.add_argument("question")
+    sp.add_argument("--reveal", action="store_true", help="show IDs and numbers unmasked")
+    sp.add_argument("--json", action="store_true", help="ask the model for a JSON reply (not streamed)")
+    sp.add_argument("--model", help="LLM name as the runtime knows it (default: gemma4:e4b)")
+    sp.add_argument("--llm-url", help="OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer)")
+    sp.add_argument("--llm-extra", help="JSON object passed to the runtime as-is")
+    sp.add_argument("-k", "--k", dest="sources", type=int, help="sources to give the model (default: 5)")
+    sp.add_argument("--ctx", type=int, help="prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH")
+    sp.add_argument("--allow-remote-llm", action="store_true", help="skip the loopback check (sends files off-machine)")
+    sp.set_defaults(fn=cmd_ask)
 
     sp = sub.add_parser("serve", help="web UI"); common(sp)
     sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8765)

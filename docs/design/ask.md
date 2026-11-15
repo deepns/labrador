@@ -305,8 +305,11 @@ none of them needs a model or a network:
 
 ## Risks and open questions
 
-- Ollama's `/v1` endpoint may ignore per-request `num_ctx` and `keep_alive`. labrador keeps its own token budget
-  and warns, and the docs set `OLLAMA_CONTEXT_LENGTH`. This needs checking in P3.
+- Tested on gemma4:e4b with Ollama 0.40.16: `keep_alive` is honoured on `/v1`. A per-request `num_ctx` had no
+  visible effect, and with the MLX runner a prompt larger than `OLLAMA_CONTEXT_LENGTH` was not truncated. labrador
+  keeps its own token budget and the docs still set `OLLAMA_CONTEXT_LENGTH`. Structured output (`--json`, needed by
+  P5b's eval) is unsupported by Ollama's MLX runner (HTTP 501), so P5b must pick a runner/option that supports it
+  or score the streamed text.
 - The verbatim check may flag correct answers that were reformatted. Comparing without whitespace and normalising
   dates helps, and P5 measures how often it happens.
 - The masker may miss a pattern. A property-style test splits known IDs at random points and checks they never
@@ -328,7 +331,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P1 | Index file permissions; Host and Origin checks, CSP, `no-store`; `--allow-lan`; inline script moved to `static/app.js` | | ~150 | plumbing | done (#4) |
 | P2a | `llm.py`: `LLM`, `OpenAICompatLLM`, `require_loopback`, `FakeLLM`; settings; `httpx` becomes a main dependency | | ~200 | plumbing | done (#5) |
 | P2b | `answer.py`: the five stages, `check`, `mrz_valid`, `Masker`, `ask()`, all tested on `FakeLLM` | P2a | ~350 | plumbing | done (#11) |
-| P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | not started |
+| P3 | `labrador ask` in the CLI; `asking.md`; installation's local-answers section | P2b, D1 | ~250 | plumbing | in review |
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | not started |
 | P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | done (#10) |
 | P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | not started |

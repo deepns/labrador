@@ -39,6 +39,27 @@ uv run python scripts/check_model.py
 
 Run it on a new machine, and again after changing `embedder.py`.
 
+## Local answers (optional)
+
+`labrador ask` needs a local LLM runtime; the embedder never does. Install [Ollama](https://ollama.com), then pull a
+4-bit model that fits your RAM:
+
+| RAM | Model | Pull |
+|---|---|---|
+| 8 GB | Gemma 4 E2B or Qwen3.5-2B | text only |
+| 16 GB | Gemma 4 E4B or Qwen3.5-4B (default tier) | `ollama pull gemma4:e4b` |
+| 32 GB | Gemma 4 12B or Qwen3.5-9B | better at citing and at conflicts |
+| 64 GB | Gemma 4 26B-A4B or 31B | the most accurate |
+
+Pick another model with `--model` (or `LABRADOR_LLM_MODEL`). Before starting Ollama, set:
+
+```bash
+export OLLAMA_CONTEXT_LENGTH=4096   # match labrador's --ctx
+export OLLAMA_NO_CLOUD=1            # so nothing leaves the machine
+```
+
+See [Asking questions](usage/asking.md) for usage and privacy.
+
 ## Where indexes live
 
 Each folder gets its own index at `~/.labrador/indexes/<folder>-<hash>/`, holding `index.db` and a `media/`
