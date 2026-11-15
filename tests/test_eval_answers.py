@@ -5,7 +5,7 @@ import json
 import pytest
 
 from labrador import cli, config
-from labrador.llm import FakeLLM
+from labrador.llm import FakeLLM, LLMError
 
 
 @pytest.fixture
@@ -62,3 +62,28 @@ def test_right_value_plus_bad_value_marks_cross(setup, capsys):
     d = run(setup, ["The number is L898902C3, or X999 [1].", "I couldn't find that in your files."])
     assert d["results"][0]["em"] and d["results"][0]["false_answer"]
     assert capsys.readouterr().out.splitlines()[0].lstrip().startswith("✗")
+
+
+def test_retry_scores_only_second_answer(setup):
+    d = run(setup, ["I couldn't find that in your files.", "The number is L898902C3 [1]."], "--category", "id")
+    r = d["results"][0]
+    assert r["retried"] and r["em"] and "couldn't find" not in r["answer_text"]
+
+
+class ErrLLM(FakeLLM):
+    def stream(self, messages):
+        if not self.calls:
+            self.calls.append(messages)
+            raise LLMError("boom")
+        yield from super().stream(messages)
+
+
+def test_llm_error_recorded_and_run_continues(setup):
+    setup[3].setattr("labrador.llm.load_llm", lambda s: ErrLLM(["I couldn't find that in your files."]))
+    with pytest.raises(SystemExit) as e:
+        run(setup, None)
+    assert "1 questions failed" in str(e.value)
+    d = json.loads(setup[2].read_text())
+    a, b = d["results"]
+    assert a["error"] == "boom" and a["false_refusal"] and not a["false_answer"]
+    assert b["error"] is None and b["refused"] and d["summary"]["errors"] == 1

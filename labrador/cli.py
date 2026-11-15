@@ -317,7 +317,7 @@ def _qa_rates(rs) -> dict:
     return {"n": len(rs), "em": rate("em", a), "cite_hit": rate("cite_hit", a),
             "cite_prec": sum(cp) / len(cp) if cp else None, "false_ans": rate("false_answer", rs),
             "false_ref": rate("false_refusal", a), "unverif": rate("unverified", rs),
-            "hit@5": rate("hit5", a), "sec/q": sum(x["seconds"] for x in rs) / len(rs) if rs else None}
+            "hit@5": rate("hit5", a), "errors": sum(bool(x["error"]) for x in rs), "sec/q": sum(x["seconds"] for x in rs) / len(rs) if rs else None}
 
 
 def cmd_eval_answers(a):
@@ -334,23 +334,24 @@ def cmd_eval_answers(a):
         rows = [r for r in rows if r.get("category") == a.category]
     results = []
     for r in rows:
-        t0, sources, text, check, retried = time.perf_counter(), [], "", {}, False
+        t0, sources, text, check, retried, err = time.perf_counter(), [], "", {}, False, None
         # Score the streamed text path (json_mode=False): Ollama's MLX runner returns 501 for structured output.
         for ev in ask(store, emb, llm, r["question"], s, reveal=True):
             if ev["type"] == "error":
-                sys.exit(f"error: {ev['message']}")
+                err, check = ev["message"], {"refused": True, "citations": [], "unverified": [], "confidence": "error"}
+                break
             if ev["type"] == "sources":
-                sources = [x["rel_path"] for x in ev["sources"]]
+                sources, text = [x["rel_path"] for x in ev["sources"]], ""    # a retry restarts the answer
             elif ev["type"] == "delta":
                 text += ev.get("text") or ev.get("raw") or ""
             elif ev["type"] == "done":
                 check, retried = ev["check"], ev["retried"]
-        res = _qa_row(r, sources, text, check, retried, time.perf_counter() - t0)
+        res = {**_qa_row(r, sources, text, check, retried, time.perf_counter() - t0), "error": err}
         results.append(res)
         if not a.quiet:
             good = (res["em"] if r.get("answerable", True) else True) and not res["false_answer"]
             print(f"{'✓' if good else '✗':>4}  [{r.get('category', '-')}] {r['question']}  -> "
-                  f"{_printable(' '.join(text.split()))[:80]}")
+                  f"{_printable(err or ' '.join(text.split()))[:80]}")
     f = lambda v: "-" if v is None else f"{v:.2f}"
     cols = ["em", "cite_hit", "cite_prec", "false_ans", "false_ref", "unverif", "hit@5"]
     print(f"\n{'category':<20} {'n':>3}  " + "  ".join(f"{c:>9}" for c in cols) + "  sec/q")
@@ -366,6 +367,8 @@ def cmd_eval_answers(a):
         Path(a.out).write_text(json.dumps({"config": cfg, "summary": summary, "by_category": by_cat,
                                            "results": results}, indent=2, ensure_ascii=False))
         print(f"wrote {a.out}")
+    if summary["errors"]:
+        sys.exit(f"{summary['errors']} questions failed with an LLM error")
 
 
 def cmd_eval(a):
