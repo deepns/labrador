@@ -59,7 +59,7 @@ answer a question from your files with a local LLM
 | `--reveal` | flag |  | show IDs and numbers unmasked |
 | `--json` | flag |  | ask the model for a structured reply and print one JSON object (not streamed) |
 | `-k`, `--k` | positive int |  | sources to give the model (default: 5) |
-| `--model` | text |  | LLM name as the runtime knows it (default: gemma4:e4b) |
+| `--model` | text |  | LLM name as the runtime knows it (default: qwen3.5:4b) |
 | `--llm-url` | text |  | OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer) |
 | `--llm-extra` | text |  | JSON object passed to the runtime, merged over the default keep_alive |
 | `--ctx` | positive int |  | prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH |
@@ -80,7 +80,7 @@ web UI
 | `--host` | text | `127.0.0.1` |  |
 | `--port` | int | `8765` |  |
 | `--allow-lan` | flag |  | allow a non-loopback --host (exposes the index) |
-| `--model` | text |  | LLM name as the runtime knows it (default: gemma4:e4b) |
+| `--model` | text |  | LLM name as the runtime knows it (default: qwen3.5:4b) |
 | `--llm-url` | text |  | OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer) |
 | `--llm-extra` | text |  | JSON object passed to the runtime, merged over the default keep_alive |
 | `--ctx` | positive int |  | prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH |
@@ -120,7 +120,7 @@ what's in the index
 
 ## labrador eval
 
-hit@k / MRR over a JSONL of {query, expect[, page]}
+hit@k / MRR over {query, expect[, page]} rows; with --answers, score `ask` over qa.jsonl
 
 `labrador eval [options] file`
 
@@ -131,6 +131,13 @@ hit@k / MRR over a JSONL of {query, expect[, page]}
 | `--backend` | `gemma`, `fake` |  |  |
 | `--device` | `auto`, `mps`, `cpu`, `cuda` |  |  |
 | `--dtype` | `float32`, `bfloat16` |  |  |
+| `--answers` | flag |  | score `ask` answers over a qa.jsonl instead of search ranking |
+| `-k`, `--k` | positive int |  | with --answers: sources to give the model (default: 5) |
+| `--model` | text |  | LLM name as the runtime knows it (default: qwen3.5:4b) |
+| `--llm-url` | text |  | OpenAI-compatible base URL (default: local Ollama; `fake` for a canned answer) |
+| `--llm-extra` | text |  | JSON object passed to the runtime, merged over the default keep_alive |
+| `--ctx` | positive int |  | prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH |
+| `--allow-remote-llm` | flag |  | skip the loopback check (sends files off-machine) |
 | `--category` | text |  | only queries of this category |
 | `--quiet` | flag |  | only the summary table |
 | `--out` | text |  | write per-query results as JSON (to compare configs) |

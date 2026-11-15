@@ -7,6 +7,9 @@ Notable changes to labrador, newest first. Phases (P0–P7, D1–D4) are rows of
 
 - D4: [CLI reference](docs/reference/cli.md) generated from the parser by `scripts/gen_cli_reference.py`, with a
   test that fails when it is stale; [configuration reference](docs/reference/configuration.md); this changelog.
+- P5b (#19): `labrador eval --answers` scores `ask` over `bench/data/qa.jsonl` and takes the LLM flags; the
+  [answer-quality report](evals/answers/REPORT.md); the default LLM is now `qwen3.5:4b` (was `gemma4:e4b`).
+- Web UI (#16): Ask mode hides search results and drops searches still in flight when you switch modes.
 
 ## 0.1.0 (2026-11-15)
 

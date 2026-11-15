@@ -25,8 +25,8 @@ def _section(text, cmd):
 def test_shared_llm_flags_render_the_same():
     text = gen.render()
     for flag in ("--model", "--llm-url", "--llm-extra", "--ctx", "--allow-remote-llm"):
-        rows = [[ln for ln in _section(text, c).splitlines() if ln.startswith(f"| `{flag}`")] for c in ("ask", "serve")]
-        assert len(rows[0]) == 1 and rows[0] == rows[1], flag
+        rows = [[ln for ln in _section(text, c).splitlines() if ln.startswith(f"| `{flag}`")] for c in ("ask", "serve", "eval")]
+        assert len(rows[0]) == 1 and rows[0] == rows[1] == rows[2], flag
 
 
 def test_render_ignores_terminal_width(monkeypatch):
