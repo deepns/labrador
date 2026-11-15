@@ -89,7 +89,7 @@ class OpenAICompatLLM(LLM):
     def _check(r: httpx.Response) -> None:
         if r.status_code >= 300:
             body = r.read().decode(errors="replace")
-            if r.status_code == 501 and "structured output" in body:
+            if r.status_code == 501 and "structured output" in body.lower():
                 raise LLMError("The LLM runtime doesn't support structured output (Ollama's MLX runner doesn't). "
                                "Drop --json, or use a runtime/model that does, e.g. llama.cpp.")
             raise LLMError(f"LLM server returned {r.status_code}: {body[:200]}")
@@ -123,9 +123,9 @@ class OpenAICompatLLM(LLM):
             self._check(r)
             return r.json()["choices"][0]["message"]["content"]
 
-    def models(self) -> list[str]:
-        with _http_errors(self.url, self.timeout):
-            r = self.client.get("/models")
+    def models(self, timeout: float = 5) -> list[str]:
+        with _http_errors(self.url, timeout):
+            r = self.client.get("/models", timeout=timeout)
             self._check(r)
             return [m["id"] for m in r.json()["data"]]
 

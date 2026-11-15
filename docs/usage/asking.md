@@ -30,17 +30,18 @@ Options:
 
 ```bash
 labrador ask "when does my insurance expire" --reveal              # show IDs and numbers unmasked
-labrador ask "when does my insurance expire" --json                # structured reply; the answer is not streamed
+labrador ask "when does my insurance expire" --json                # structured reply; prints one JSON object, not streamed
 labrador ask "my passport number" --model qwen3.5:4b               # another model name
 labrador ask "my passport number" --llm-url http://127.0.0.1:8080/v1   # another runtime (llama.cpp, LM Studio)
 labrador ask "my passport number" --ctx 8192 -k 8                  # larger prompt budget, more sources
 ```
 
-`--json` needs a runtime with structured-output support. Ollama's MLX runner returns an error for it (HTTP 501); use
-plain asking there.
+`--json` prints one object, `{sources, warnings, answer, check, retried}`, masked unless `--reveal`. It needs a
+runtime with structured-output support. Ollama's MLX runner returns an error for it (HTTP 501); use plain asking
+there.
 
-`--llm-extra '{"think": false}'` passes a JSON object to the runtime as-is. The defaults also come from
-`LABRADOR_LLM_URL` and `LABRADOR_LLM_MODEL`.
+`--llm-extra '{"think": false}'` passes a JSON object to the runtime, merged over the default `keep_alive`. The
+defaults also come from `LABRADOR_LLM_URL` and `LABRADOR_LLM_MODEL`.
 
 The first question after the model has been idle loads it into memory and can take a minute or two (the request
 times out after 5 minutes).

@@ -56,6 +56,28 @@ def test_ask_unverified_status(folder, capsys, monkeypatch):
     assert "✗ unverified: L898902C4" in out and "low confidence" in out
 
 
+def test_ask_unverified_masked_without_reveal(folder, capsys, monkeypatch):
+    use_llm(monkeypatch, FakeLLM(["Your passport number is L898902C4 [1]."]))
+    _, out, _ = run_ask(capsys, "passport number")
+    assert "L898902C4" not in out and "✗ unverified: •••••02C4" in out and "--reveal to show" in out
+
+
+def test_ask_json_output_is_masked_json(folder, capsys, monkeypatch):
+    import json
+    use_llm(monkeypatch, FakeLLM(['{"found": true, "answer": "It is L898902C4", "citations": [1], "quote": null}']))
+    code, out, _ = run_ask(capsys, "passport number", "--json")
+    d = json.loads(out)
+    assert code == 0 and "L898902C4" not in out and "•••••02C4" in d["answer"]
+    assert d["sources"][0]["rel_path"] == "passport.txt" and d["retried"] is False
+    assert d["check"]["unverified"] == ["•••••02C4"]
+
+
+@pytest.mark.parametrize("flag", ["-k", "--ctx"])
+def test_ask_rejects_non_positive_numbers(folder, capsys, flag):
+    code, _, err = run_ask(capsys, "x", flag, "0")
+    assert code == 2 and "at least 1" in err and "Traceback" not in err
+
+
 def test_ask_refusal(folder, capsys, monkeypatch):
     use_llm(monkeypatch, FakeLLM(["I couldn't find that in your files."]))
     code, out, _ = run_ask(capsys, "passport number")
@@ -109,7 +131,7 @@ def test_ask_flags_reach_settings(folder, capsys, monkeypatch):
             "--allow-remote-llm")
     s = seen[0]
     assert (s.llm_model, s.context_tokens, s.ask_sources, s.llm_extra, s.allow_remote_llm) == (
-        "m", 2048, 3, {"think": False}, True)
+        "m", 2048, 3, {"keep_alive": "2m", "think": False}, True)
 
 
 def test_ask_json_unsupported_is_one_line_error(folder, capsys, monkeypatch):
