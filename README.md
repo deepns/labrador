@@ -4,7 +4,7 @@ Local, private, multimodal search over a folder on your Mac, built on
 [EmbeddingGemma 2](https://huggingface.co/google/embeddinggemma-2). Describe what you are looking for and it
 returns the most relevant **text passages, text read from images, images, PDF pages and pictures embedded in PDFs**.
 It can also answer questions from your files with a local LLM.
-A learning-sized take on [DigUp](https://github.com/ARahim3/DigUp): Python instead of Swift, ~1,200 lines, every stage visible.
+A learning-sized take on [DigUp](https://github.com/ARahim3/DigUp): Python instead of Swift, ~2,300 lines, every stage visible.
 
 ```
 folder ──► extractors ──────────────► units ──► EmbeddingGemma 2 ──► SQLite (vectors + FTS5)

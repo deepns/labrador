@@ -68,7 +68,7 @@ Each folder gets its own index at `~/.labrador/indexes/<folder>-<hash>/`, holdin
 directory of thumbnails. The directories are `0700` and the files `0600`. Your own folder is only ever read.
 
 Set `LABRADOR_HOME` to move the root (default `~/.labrador`). `labrador index` records the most recent index in
-`$LABRADOR_HOME/last_index`, which `search`, `serve` and `stats` use unless you pass `--index DIR`.
+`$LABRADOR_HOME/last_index`, which `search`, `serve`, `ask`, `eval` and `stats` use unless you pass `--index DIR`.
 
 ## No model? Use the fake backend
 

@@ -27,7 +27,7 @@ change only in code.
 |---|---|---|
 | `model_id` | `google/embeddinggemma-2` | `LABRADOR_MODEL` |
 | `backend` | `gemma` | `--backend` (`fake` is a hashing embedder for tests, no download) |
-| `device` | `auto` (MPS on Apple Silicon, else CPU) | `--device` |
+| `device` | `auto` (MPS on Apple Silicon, else CUDA if available, else CPU) | `--device` |
 | `dtype` | `float32` | `--dtype` (`float32` or `bfloat16`; never float16, which gives NaNs) |
 | `dim` | `768` | `--dim` (Matryoshka: 768, 512, 256, 128) |
 | `image_tokens` | `280` | `--image-tokens` (vision budget per image) |
