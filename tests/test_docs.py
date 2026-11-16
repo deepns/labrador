@@ -1,4 +1,5 @@
-"""Docs checks: relative links resolve, documented flags exist, the quick start runs."""
+"""Docs checks: relative links and #anchors resolve, documented flags exist, the README command table matches
+the CLI, configuration.md names no stale env vars, the quick start runs."""
 
 import re
 import shlex
@@ -11,7 +12,7 @@ from labrador import cli, config
 
 ROOT = Path(__file__).resolve().parent.parent
 PAGES = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
-LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+LINK_PAGES = [ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "CHANGELOG.md", *PAGES[1:]]
 FENCE = re.compile(r"```\w*\n(.*?)```", re.S)
 
 
@@ -28,13 +29,62 @@ def _subparsers():
     return next(a for a in p._actions if hasattr(a, "_name_parser_map")).choices
 
 
-@pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(ROOT)))
-def test_relative_links_resolve(page):
-    text = FENCE.sub("", page.read_text(encoding="utf-8"))
-    for target in LINK.findall(text):
-        if target.startswith(("http://", "https://", "#", "mailto:")):
+def test_readme_command_table_matches_cli():
+    sub = _subparsers()
+    table = (ROOT / "README.md").read_text(encoding="utf-8").split("## Commands")[1].split("\n## ")[0]
+    documented = set(re.findall(r"^\| `labrador (\w[\w-]*)", table, re.M))
+    missing, extra = sorted(set(sub) - documented), sorted(documented - set(sub))
+    assert not (missing or extra), f"README Commands table: missing {missing}, extra {extra}"
+
+
+def test_configuration_page_has_no_stale_env_vars():
+    page = (ROOT / "docs" / "reference" / "configuration.md").read_text(encoding="utf-8")
+    used = set()
+    for src in (ROOT / "labrador").glob("*.py"):
+        used |= set(re.findall(r"LABRADOR_[A-Z_]+", src.read_text(encoding="utf-8")))
+    stale = sorted(set(re.findall(r"LABRADOR_[A-Z_]+", page)) - used)
+    assert not stale, f"docs/reference/configuration.md names env vars no code reads: {stale}"
+
+
+def _slug(heading):
+    return re.sub(r"[^a-z0-9 _-]", "", heading.strip().lower()).replace(" ", "-")
+
+
+def _scan(path):
+    """Return (links as (line, target), heading slugs), ignoring fenced and inline code."""
+    links, slugs, fenced = [], set(), False
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if line.lstrip().startswith(("```", "~~~")):
+            fenced = not fenced
             continue
-        assert (page.parent / unquote(target.split("#")[0])).exists(), f"{page.relative_to(ROOT)}: broken link {target}"
+        if fenced:
+            continue
+        if m := re.match(r"#{1,6}\s+(.*)", line):
+            slugs.add(_slug(re.sub(r"[`*]", "", m.group(1))))
+        line = re.sub(r"`[^`]*`", "", line)
+        links += [(n, t) for t in re.findall(r"\[[^\]]*\]\(([^)\s]+)", line)]
+    return links, slugs
+
+
+def test_relative_links_resolve():
+    scanned, bad = {}, []
+    for doc in LINK_PAGES:
+        links, slugs = _scan(doc)
+        scanned[doc] = slugs
+        for n, target in links:
+            if re.match(r"(https?:|mailto:)", target):
+                continue
+            where = f"{doc.relative_to(ROOT)}:{n} -> {target}"
+            file, _, anchor = target.partition("#")
+            dest = (doc.parent / unquote(file)).resolve() if file else doc
+            if not dest.exists():
+                bad.append(f"{where} (no such file)")
+            elif anchor and dest.suffix == ".md":
+                if dest not in scanned:
+                    scanned[dest] = _scan(dest)[1]
+                if anchor.lower() not in scanned[dest]:
+                    bad.append(f"{where} (no such heading)")
+    assert not bad, "broken links:\n" + "\n".join(bad)
 
 
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(ROOT)))
