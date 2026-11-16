@@ -1,6 +1,6 @@
 ---
 name: docs-audit
-description: Check labrador's docs against the code with the docs-keeper agent and fix the drift. Use before opening a PR (default, checks the branch diff), when the docs_gate hook blocks `gh pr create`, or with `full` for a whole-repo sweep.
+description: Check labrador's docs against the code with the docs-keeper agent and fix the drift. Use before opening a PR or pushing new commits to an open PR (default, checks the branch diff), when the docs_gate hook blocks `gh pr create` or `git push`, or with `full` for a whole-repo sweep.
 ---
 
 # docs-audit
@@ -20,8 +20,9 @@ description: Check labrador's docs against the code with the docs-keeper agent a
    - `full` scope: on a new `docs/<topic>` branch off `origin/main`, as a docs-only PR. Keep it within ~400 changed
      lines; split by doc if it grows.
 4. **Record it.** Tick the docs line of the PR template with the outcome: no drift, fixed in this PR, or listed
-   for the reviewer. Then touch `.git/docs-audit-<branch>` (branch name with `/` replaced by `-`) so the `docs_gate`
-   hook lets `gh pr create` through.
+   for the reviewer. Commit any fixes, then record the audit with
+   `git rev-parse HEAD > "$(git rev-parse --git-common-dir)/docs-audit-<branch>"` (branch name with `/` replaced
+   by `-`). The `docs_gate` hook checks that sha before `gh pr create` and before `git push` to an open PR.
 
 Never let the agent's output stand in for checking: a "No drift found" result still lists the docs it checked, so
 confirm the ones the diff should have touched are on that list.
