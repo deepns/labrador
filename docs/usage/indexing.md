@@ -53,7 +53,7 @@ uv run labrador index ~/labrador-sample --rebuild
 | `--no-page-images` | | Skip PDF page pictures (text only, faster) |
 | `--no-ocr` | | Skip OCR on images and scanned pages |
 | `--dtype` | float32 | `bfloat16` halves memory; compare with `scripts/check_model.py` first. Never float16 |
-| `--device` | auto | `mps` on Apple Silicon, else `cpu` |
+| `--device` | auto | `mps` on Apple Silicon, else `cuda` if available, else `cpu` |
 | `--backend fake` | | Hashing embedder, no model download: tests the plumbing, says nothing about quality |
 
 An index remembers its model and `--dim`, and refuses a run with a different one. The other options only affect

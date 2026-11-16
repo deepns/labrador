@@ -1,4 +1,5 @@
-"""Small local web UI (Starlette). Binds to 127.0.0.1 only; serves only files that are in the index.
+"""Small local web UI (Starlette). Binds to 127.0.0.1 by default (a non-loopback --host needs --allow-lan);
+serves only files that are in the index.
 
 `POST /api/ask` (JSON body, application/json only) streams answer.ask() events as NDJSON, one per line. The server
 masks identifiers (the `done` event's unverified tokens too) and sends each as {"mask", "raw"}; the page shows `mask`
