@@ -16,7 +16,7 @@
 - [ ] Ranking changes: `labrador eval bench/data/queries.jsonl --out evals/out/<name>.json` before and after, numbers below
 - [ ] Invariants in CLAUDE.md still hold (units/groups, dtype, read-only source folder, embedder fingerprint, per-modality z-scores)
 - [ ] Re-index needed? If document formatting, vision budgets or dtype changed, say so: `labrador index --rebuild`
-- [ ] User-facing docs updated in this PR (README / `docs/`), and the rollout table in `docs/design/` if this is a planned phase
+- [ ] `/docs-audit` run: no drift / fixed in this PR / listed under Notes for the reviewer (README, `docs/`, and the rollout table in `docs/design/` if this is a planned phase)
 - [ ] No machine-specific paths or links to gitignored output
 
 ## Eval (ranking or quality changes only)
