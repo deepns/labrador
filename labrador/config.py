@@ -54,7 +54,7 @@ class Settings:
     llm_extra: dict = field(default_factory=lambda: {"keep_alive": "2m"})   # passed to the runtime as-is
     temperature: float = 0.0
     llm_deadline_s: float = 300.0     # wall-clock cap on one generation, thinking included
-    llm_max_tokens: int = 2048        # sent as max_tokens; --llm-extra can override
+    llm_max_tokens: int = 2048        # sent as max_tokens; --llm-extra overrides. Unmeasured: see ask.md
     ask_search_k: int = 10            # hits retrieved per question
     ask_sources: int = 5              # hits packed into the prompt
     source_tokens: int = 1500         # cap per source (chars/4)

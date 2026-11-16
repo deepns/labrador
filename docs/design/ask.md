@@ -323,8 +323,12 @@ none of them needs a model or a network:
 - ~~A CSP would block the current inline script.~~ Resolved in P1: script and styles moved to `static/app.js` / `static/app.css`.
 - P6 measured `--images` on qwen3.5:4b. With OCR already exact, pictures gave no gain, added about 800 tokens
   each and made answers about 3× slower on average. One request ran for 2 h 44 min: the model streamed without end
-  and labrador has no overall deadline (httpx's 300 s timeout only covers a gap between chunks). Details are in
+  and labrador had no overall deadline (httpx's 300 s timeout only covers a gap between chunks; fixed by
+  `llm_deadline_s` in #21). Details are in
   [evals/answers/REPORT.md](../../evals/answers/REPORT.md#reading-pictures---images-p6).
+- `llm_deadline_s = 300` and `llm_max_tokens = 2048` are unmeasured guesses, chosen to stop a runaway generation
+  (one `--images` run streamed reasoning for 2 h 44 min). The cap may cut a long thinking answer short; rerun
+  `eval --answers` and check whether any answer stops at 2048 tokens before trusting it.
 - `labrador search` still shows unmasked snippets. Whether masking should apply everywhere is decided after P4.
 
 ## Rollout
