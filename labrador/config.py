@@ -26,7 +26,7 @@ SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".labrador"
 class Settings:
     model_id: str = MODEL_ID
     backend: str = "gemma"            # "gemma" (real model) or "fake" (plumbing tests, no download)
-    device: str = "auto"              # auto -> mps on Apple Silicon, else cpu
+    device: str = "auto"              # auto -> mps on Apple Silicon, else cuda, else cpu
     dtype: str = "float32"            # float32 | bfloat16  (never float16: model emits NaNs)
     dim: int = 768                    # Matryoshka: 768 | 512 | 256 | 128
     # Text chunking (characters, not tokens; ~4 chars/token for English)

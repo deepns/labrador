@@ -202,7 +202,7 @@ the sources next to every answer, and the verbatim checks.
 `POST /api/ask` takes `{"q": "...", "k": 5, "images": false}` and returns `application/x-ndjson`:
 
 ```
-{"type":"sources","sources":[{"n":1,"file_id":12,"rel_path":"documents/passport-scan.jpg","kind":"photo OCR","modified":"2025-04-02","picture":true}],"warnings":[]}
+{"type":"sources","sources":[{"n":1,"file_id":12,"rel_path":"documents/passport-scan.jpg","page":null,"kind":"photo OCR","modified":"2025-04-02","truncated":false,"picture":true}],"warnings":[]}
 {"type":"delta","text":"Your passport number is "}
 {"type":"delta","mask":"•••••02C3","raw":"…"}
 {"type":"done","check":{"citations":[1],"unverified":[],"mrz":"valid","confidence":"high","refused":false},"retried":false}
