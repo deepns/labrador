@@ -202,7 +202,7 @@ the sources next to every answer, and the verbatim checks.
 `POST /api/ask` takes `{"q": "...", "k": 5, "images": false}` and returns `application/x-ndjson`:
 
 ```
-{"type":"sources","sources":[{"n":1,"file_id":12,"rel_path":"documents/passport-scan.jpg","kind":"photo OCR","modified":"2025-04-02"}],"warnings":[]}
+{"type":"sources","sources":[{"n":1,"file_id":12,"rel_path":"documents/passport-scan.jpg","kind":"photo OCR","modified":"2025-04-02","picture":true}],"warnings":[]}
 {"type":"delta","text":"Your passport number is "}
 {"type":"delta","mask":"•••••02C3","raw":"…"}
 {"type":"done","check":{"citations":[1],"unverified":[],"mrz":"valid","confidence":"high","refused":false},"retried":false}
@@ -321,6 +321,10 @@ none of them needs a model or a network:
 - No public benchmark measures 4–12B models transcribing long IDs or reading MRZ lines. P5 builds one on fictional
   data.
 - ~~A CSP would block the current inline script.~~ Resolved in P1: script and styles moved to `static/app.js` / `static/app.css`.
+- P6 measured `--images` on qwen3.5:4b. With OCR already exact, pictures gave no gain, added about 800 tokens
+  each and made answers about 3× slower on average. One request ran for 2 h 44 min: the model streamed without end
+  and labrador has no overall deadline (httpx's 300 s timeout only covers a gap between chunks). Details are in
+  [evals/answers/REPORT.md](../../evals/answers/REPORT.md#reading-pictures---images-p6).
 - `labrador search` still shows unmasked snippets. Whether masking should apply everywhere is decided after P4.
 
 ## Rollout
@@ -339,11 +343,13 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | done (#15) |
 | P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | done (#10) |
 | P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | done (#19) |
-| P6 | `--images`: vision models read the original file | P5b | ~150 | quality | not started |
+| P6 | `--images`: vision models read the original file | P5b | ~150 | quality | in review |
+| P6b | Degraded-scan rows in `qa.jsonl` (OCR misreads a digit); `eval --answers` records which sources had a picture; rerun with and without `--images` | P6 | ~80 | quality | not started |
 | P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | | | optional | not planned |
 | D1 | `docs/README.md`, `installation.md`, `usage/quickstart.md`; `cli.build_parser()`; `tests/test_docs.py` (links, flags, quick start) | | ~400 | docs | done (#9) |
 | D2 | `usage/` pages: indexing, searching, web UI, evaluating; README slimmed to the front door | D1 | ~400 | docs | in review (#18) |
 | D3 | `faq.md`, `security-privacy.md`, root `SECURITY.md` | D1 | ~350 | docs | done (#13) |
 | D4 | `scripts/gen_cli_reference.py`, `reference/cli.md`, `reference/configuration.md` and their tests; `CHANGELOG.md` | D1 | ~350 | docs | done (#17) |
 
-**Next:** P6, now that P5b has landed. P7 stays optional.
+**Next:** a generation deadline and `max_tokens` cap in `llm.py` (an `--images` run hung for 2 h 44 min; see
+[the answers report](../../evals/answers/REPORT.md#the-hung-run---images---ctx-8192)), then P6b. P7 stays optional.

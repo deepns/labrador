@@ -76,6 +76,26 @@ link to the file at the right page, and the status line shows the same checks as
 `•••••02C3`; click one to show it, click again to hide it. `serve` takes the same LLM flags as `ask` (`--model`,
 `--llm-url`, `--llm-extra`, `--ctx`, `--allow-remote-llm`) and refuses a non-loopback `--llm-url` the same way.
 
+## Reading pictures (`--images`)
+
+```bash
+labrador ask --images "what does the sign say?" --ctx 8192
+```
+
+For the top two sources that are images or PDF pages, labrador attaches the original picture (long side 1024 px)
+next to the OCR text, so a vision model can read what OCR got wrong. Both default-tier models (`qwen3.5:4b`,
+`gemma4:e4b`) are vision models. Each picture adds about 800 prompt tokens. labrador reserves that from `--ctx`, and
+the reservation drops text sources if they no longer fit. If you see "dropped" warnings, raise `--ctx` (and
+`OLLAMA_CONTEXT_LENGTH`), for example to 8192. Checks still run against the source text, so a value that appears only
+in the picture is shown as unverified. Pictures are re-encoded, which drops EXIF/GPS metadata, and go only to your
+local LLM. In the web UI, tick "Read pictures" in Ask mode. `eval --answers` takes `--images` too.
+
+Expect it to be slower and not necessarily better. On the benchmark, where OCR already reads every document
+correctly, `--images` didn't improve any answer. Answers took about 3× longer on average, some passport questions
+took over 2 minutes, and one request never finished. labrador doesn't yet put a time limit on a generation, so
+press Ctrl-C if an answer hangs; nothing is saved, so this is safe. See
+[the answers report](../../evals/answers/REPORT.md#reading-pictures---images-p6).
+
 ## Masking
 
 IDs, card numbers and other long codes print masked (`•••••02C3`) unless you pass `--reveal`. The status line says

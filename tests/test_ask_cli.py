@@ -166,3 +166,12 @@ def test_ask_validates_llm_before_loading_embedder(folder, capsys, monkeypatch):
     monkeypatch.setattr("labrador.embedder.load_embedder", boom)
     code, _, err = run_ask(capsys, "x", "--llm-url", "http://example.com/v1")
     assert code == 1 and err.startswith("error:") and len(err.strip().splitlines()) == 1
+
+
+def test_ask_images_marks_picture_sources(folder, capsys):
+    from PIL import Image
+    Image.new("RGB", (64, 64), "white").save(folder / "scan.png")
+    cli.main(["index", str(folder), "--backend", "fake"])
+    code, out, _ = run_ask(capsys, "passport number", "--llm-url", "fake", "--images")
+    assert code == 0 and "scan.png" in out and ", picture)" in out
+    assert ", picture" not in run_ask(capsys, "passport number", "--llm-url", "fake")[1]

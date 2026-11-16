@@ -67,6 +67,9 @@ Used by `labrador ask`, Ask mode in `labrador serve`, and `labrador eval --answe
 | `ask_sources` | `5` | `--k` on `ask` and `eval --answers` (hits packed into the prompt) |
 | `source_tokens` | `1500` | cap per source, counted as characters / 4 |
 | `context_tokens` | `4096` | `--ctx`; match `OLLAMA_CONTEXT_LENGTH` |
+| `ask_images` | `0` | sources whose original picture is attached; `--images` sets it to 2 |
+| `ask_image_px` | `1024` | long side of an attached picture |
+| `ask_image_tokens` | `800` | estimated prompt tokens reserved per picture from `context_tokens` |
 | `allow_remote_llm` | `False` | `--allow-remote-llm` skips the loopback check and sends file text off-machine |
 
 ## Index layout

@@ -88,7 +88,7 @@ async function ask() {
   status("Searching…");
   try {
     const r = await fetch("/api/ask", { method: "POST", headers: { "content-type": "application/json" },
-                                        body: JSON.stringify({ q }), signal: abort.signal });
+                                        body: JSON.stringify({ q, images: $("ask-images").checked }), signal: abort.signal });
     if (!r.ok) { status(await r.text()); return; }
     const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
     const handle = (e) => {
@@ -97,7 +97,7 @@ async function ask() {
         for (const x of e.sources) {
           const li = el("li"), a = el("a", `[${x.n}] ${x.rel_path}${x.page ? " p." + x.page : ""}`);
           a.href = `/file/${x.file_id}${x.page ? "#page=" + x.page : ""}`; a.target = "_blank"; a.rel = "noopener";
-          li.append(a, ` (${x.kind}${x.modified ? ", " + x.modified : ""})`); ul.append(li);
+          li.append(a, ` (${x.kind}${x.modified ? ", " + x.modified : ""}${x.picture ? " · picture" : ""})`); ul.append(li);
         }
         warn.replaceChildren(...e.warnings.map(w => el("div", "warning: " + w, "warn")));
         if (waiting && e.sources.length) status("Writing the answer…");

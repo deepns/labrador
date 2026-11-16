@@ -222,3 +222,100 @@ def test_empty_index_refuses_without_calling_llm(tmp_path):
     s, llm = Settings(backend="fake"), FakeLLM()
     events = list(ask(Store(tmp_path / "e"), load_embedder(s), llm, "anything at all", s))
     assert events[-1]["check"]["refused"] and not llm.calls
+
+
+# ------------------------------------------------------------------ pictures (--images)
+def _png(path, size=(1600, 800), exif=False):
+    from PIL import Image
+    im = Image.new("RGB", size, "white")
+    if exif:
+        ex = Image.Exif()
+        ex[0x010F] = "SecretCam"
+        im.save(path, exif=ex)
+    else:
+        im.save(path)
+
+
+def _decode(url):
+    import base64
+    import io
+
+    from PIL import Image
+    assert url.startswith("data:image/jpeg;base64,")
+    im = Image.open(io.BytesIO(base64.b64decode(url.split(",", 1)[1])))
+    return im
+
+
+def test_load_picture(tmp_path):
+    from labrador.answer import load_picture
+    _png(tmp_path / "a.png", exif=True)
+    im = _decode(load_picture(str(tmp_path / "a.png"), None, 1024))
+    assert im.format == "JPEG" and max(im.size) <= 1024 and not im.getexif()
+    (tmp_path / "n.txt").write_text("hi")
+    assert load_picture(str(tmp_path / "n.txt"), None, 1024) is None
+    import pypdfium2 as pdfium
+    pdf = pdfium.PdfDocument.new()
+    pdf.new_page(300, 200)
+    pdf.save(str(tmp_path / "d.pdf"))
+    assert max(_decode(load_picture(str(tmp_path / "d.pdf"), 1, 512)).size) <= 512
+    assert load_picture(str(tmp_path / "d.pdf"), None, 512) is None
+
+
+@pytest.fixture
+def img_env(env, tmp_path):
+    store, emb, s = env
+    root = tmp_path / "docs"
+    (root / "photos").mkdir()
+    _png(root / "photos" / "scan.png")
+    Indexer(root, store, emb, s).run(verbose=False)
+    return store, emb, Settings(backend="fake", ask_images=2)
+
+
+def pic_sources(img_env, **kw):
+    store, emb, s = img_env
+    sources, warns = pack(retrieve(store, emb, "passport number", "passport number", s), store, s)
+    return sources, warns
+
+
+def test_pack_attaches_only_image_pictures(img_env):
+    sources, warns = pic_sources(img_env)
+    pics = {x.rel_path: x.picture for x in sources}
+    assert pics["photos/scan.png"].startswith("data:image/jpeg") and pics["documents/passport.txt"] is None
+    assert [x.to_dict()["picture"] for x in sources if x.rel_path == "photos/scan.png"] == [True]
+    assert not warns
+
+
+def test_pack_reserves_picture_tokens_and_survives_missing_file(img_env, tmp_path):
+    store, emb, s = img_env
+    hits = retrieve(store, emb, "passport number", "passport number", s)
+    tight = Settings(backend="fake", context_tokens=400, source_tokens=20)
+    n_off = len(pack(hits, store, tight)[0])
+    n_on = len(pack(hits, store, Settings(backend="fake", context_tokens=400, source_tokens=20, ask_images=2,
+                                          ask_image_tokens=60))[0])
+    assert n_on <= n_off
+    (tmp_path / "docs" / "photos" / "scan.png").unlink()
+    sources, warns = pack(hits, store, s)
+    assert all(x.picture is None for x in sources)
+    assert any("scan.png: couldn't read the picture" in w for w in warns)
+
+
+def test_build_messages_with_pictures(img_env, monkeypatch):
+    sources, _ = pic_sources(img_env)
+    msgs = build_messages("what?", sources)
+    parts = msgs[1]["content"]
+    assert isinstance(parts, list) and "Pictures of some sources" in msgs[0]["content"]
+    types = [p["type"] for p in parts]
+    assert types == ["text", "text", "image_url", "text"] and parts[-1]["text"] == "Question: what?"
+    assert parts[1]["text"].startswith("Picture of source [") and "photos/scan.png" in parts[1]["text"]
+    assert isinstance(build_messages("q", passport_sources(img_env[:2] + (Settings(backend="fake"),)))[1]["content"], str)
+    monkeypatch.setattr("labrador.answer.secrets.token_hex", lambda n: "c9b9a1c4")
+    next(x for x in sources if x.picture).rel_path = "ac9b9c9b9a1c4a1c4.png"      # nonce split around itself
+    assert "c9b9a1c4" not in build_messages("q", sources)[1]["content"][1]["text"]
+
+
+def test_ask_sends_pictures(img_env):
+    store, emb, s = img_env
+    llm = FakeLLM(["Policy number ZX9917342 [1]."])
+    events = list(ask(store, emb, llm, "passport number", s))
+    assert any(x["picture"] for x in events[0]["sources"])
+    assert any(p["type"] == "image_url" for p in llm.calls[0][1]["content"])

@@ -146,13 +146,15 @@ def create_app(store, emb, allowed_hosts=None, llm=None, settings=None):
         if not isinstance(q, str) or not q.strip() or isinstance(k, bool) or not isinstance(k, int):
             return PlainTextResponse("Expected a JSON object with a non-empty string q (and an integer k)",
                                      status_code=400)
-        if body.get("images"):
-            return PlainTextResponse("Asking about images is not available yet", status_code=400)
+        images = body.get("images", False)
+        if not isinstance(images, bool):
+            return PlainTextResponse("images must be true or false", status_code=400)
         if llm is None:
             return PlainTextResponse("No LLM configured; restart `labrador serve` with --llm-url or --model",
                                      status_code=503)
         k = max(1, min(k, 20))
-        s = dataclasses.replace(settings, ask_sources=k, ask_search_k=max(settings.ask_search_k, k))
+        s = dataclasses.replace(settings, ask_sources=k, ask_search_k=max(settings.ask_search_k, k),
+                                ask_images=2 if images else 0)
         events = ask(store, LockedEmbedder(emb, model_lock), llm, q.strip(), s, reveal=False)
         return StreamingResponse(_ndjson(events), media_type="application/x-ndjson")
 

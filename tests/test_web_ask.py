@@ -98,7 +98,8 @@ def test_request_validation(env):
     assert c.post("/api/ask", json=["x"]).status_code == 400
     assert c.post("/api/ask", json={"q": "  "}).status_code == 400
     assert c.post("/api/ask", json={"q": "x", "k": "5"}).status_code == 400
-    assert c.post("/api/ask", json={"q": "x", "images": True}).status_code == 400
+    assert c.post("/api/ask", json={"q": "x", "images": "yes"}).status_code == 400
+    assert c.post("/api/ask", json={"q": "x", "images": True}).status_code == 200
     assert c.post("/api/ask", json={"q": "x", "k": 999}).status_code == 200      # clamped, not refused
     assert c.get("/api/ask").status_code == 405
 
@@ -148,3 +149,18 @@ def test_serve_llm_flags_parse_and_remote_url_exits_early(monkeypatch):
     with pytest.raises(SystemExit) as e:
         cli.main(["serve", "--llm-url", "http://example.com/v1"])
     assert "not loopback" in str(e.value.code)
+
+
+def test_images_flag_reaches_the_prompt(env, tmp_path):
+    from PIL import Image
+    store, emb = env
+    folder = tmp_path / "docs"
+    Image.new("RGB", (64, 64), "white").save(folder / "scan.png")
+    Indexer(folder, store, emb, Settings(backend="fake")).run()
+    llm = FakeLLM()
+    _, ev = ask(client(env, llm), images=True)
+    assert any(x["picture"] for x in ev[0]["sources"])
+    assert any(p["type"] == "image_url" for p in llm.calls[0][1]["content"])
+    llm2 = FakeLLM()
+    ask(client(env, llm2), images=False)
+    assert isinstance(llm2.calls[0][1]["content"], str)
