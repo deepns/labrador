@@ -13,6 +13,7 @@ import ipaddress
 import json
 import socket
 import sys
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from urllib.parse import urlsplit
@@ -73,17 +74,27 @@ def _http_errors(url: str, timeout: float):
 
 class OpenAICompatLLM(LLM):
     def __init__(self, url: str, model: str, temperature: float = 0.0, extra: dict | None = None,
-                 timeout: float = 300.0, transport: httpx.BaseTransport | None = None):
+                 timeout: float = 300.0, deadline: float = 300.0, max_tokens: int | None = 2048,
+                 transport: httpx.BaseTransport | None = None):
         self.url, self.model, self.temperature = url, model, temperature
         self.extra, self.timeout, self.name = extra or {}, timeout, model
+        self.deadline, self.max_tokens = deadline, max_tokens
         # trust_env=False: HTTP(S)_PROXY env vars can never route the prompt off the machine.
         # No redirects: a loopback server can't bounce the request somewhere else.
         self.client = httpx.Client(base_url=url.rstrip("/"), timeout=httpx.Timeout(timeout, connect=5.0),
                                    trust_env=False, follow_redirects=False, transport=transport)
 
     def _body(self, messages: list[dict], stream: bool) -> dict:
+        cap = {} if self.max_tokens is None else {"max_tokens": self.max_tokens}
         return {"model": self.model, "messages": messages, "temperature": self.temperature,
-                "stream": stream, **self.extra}
+                "stream": stream, **cap, **self.extra}
+
+    def _over_deadline(self, start: float) -> None:
+        # The httpx timeout is per read, so a model that thinks without end never trips it; this caps the total.
+        if time.monotonic() - start > self.deadline:
+            raise LLMError(f"LLM generation stopped after the {self.deadline:g}s deadline (llm_deadline_s); the "
+                           "model may be stuck thinking. Try --llm-extra '{\"reasoning_effort\": \"none\"}' "
+                           "or a shorter question.")
 
     @staticmethod
     def _check(r: httpx.Response) -> None:
@@ -95,10 +106,12 @@ class OpenAICompatLLM(LLM):
             raise LLMError(f"LLM server returned {r.status_code}: {body[:200]}")
 
     def stream(self, messages):
+        start = time.monotonic()
         with _http_errors(self.url, self.timeout):
             with self.client.stream("POST", "/chat/completions", json=self._body(messages, True)) as r:
                 self._check(r)
                 for line in r.iter_lines():
+                    self._over_deadline(start)             # also for keep-alives and reasoning-only chunks
                     if not line.startswith("data:"):       # blank lines and ": keep-alive" comments
                         continue
                     data = line[5:].strip()
@@ -118,10 +131,15 @@ class OpenAICompatLLM(LLM):
         if schema:
             body["response_format"] = {"type": "json_schema",
                                        "json_schema": {"name": "answer", "schema": schema, "strict": True}}
+        start = time.monotonic()
         with _http_errors(self.url, self.timeout):
-            r = self.client.post("/chat/completions", json=body)
-            self._check(r)
-            return r.json()["choices"][0]["message"]["content"]
+            with self.client.stream("POST", "/chat/completions", json=body) as r:
+                self._check(r)
+                parts = []
+                for chunk in r.iter_bytes():
+                    parts.append(chunk)
+                    self._over_deadline(start)
+            return json.loads(b"".join(parts))["choices"][0]["message"]["content"]
 
     def models(self, timeout: float = 5) -> list[str]:
         with _http_errors(self.url, timeout):
@@ -161,4 +179,5 @@ def load_llm(s: Settings) -> LLM:
               file=sys.stderr)
     else:
         require_loopback(s.llm_url)
-    return OpenAICompatLLM(s.llm_url, s.llm_model, s.temperature, s.llm_extra)
+    return OpenAICompatLLM(s.llm_url, s.llm_model, s.temperature, s.llm_extra,
+                           deadline=s.llm_deadline_s, max_tokens=s.llm_max_tokens)
