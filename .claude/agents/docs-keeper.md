@@ -46,8 +46,12 @@ diff scope when a command, flag, default or file type they mention changed.
   links (the target file and heading exist).
 - The README intro and diagram must name every model labrador runs and what it does (the embedding model for
   search, the LLM for `ask`), with the defaults from `config.py`. A front page that names only one is `missing`.
-- `tests/test_cli_reference.py` already keeps `docs/reference/cli.md` in step with `--help`; spend your effort on
-  the docs that nothing tests.
+- Tests already cover the mechanical checks; spend your effort on the claims nothing tests:
+  - `tests/test_cli_reference.py` keeps `docs/reference/cli.md` in step with `--help` and checks that
+    `configuration.md` names every `Settings` field and `LABRADOR_*` variable.
+  - `tests/test_docs.py` checks that relative links and `#anchors` resolve, that flags in `labrador …` code blocks
+    exist, that the README command table matches the CLI, that `configuration.md` names no stale variables, and
+    that the quick start runs.
 - A claim that is true but leaves out something users now rely on (a new command, flag, file type or model) is
   `missing`.
 
