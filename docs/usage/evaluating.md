@@ -85,7 +85,7 @@ uv run labrador eval bench/data/queries.jsonl --quiet --out evals/out/dim256.jso
 ## Answer quality
 
 `labrador eval --answers` runs every question in a QA file through `labrador ask` and scores the answers. It takes
-the same LLM flags as `ask` (`--model`, `--llm-url`, `--llm-extra`, `--ctx`, `-k`, `--allow-remote-llm`) and
+the same LLM flags as `ask` (`--model`, `--llm-url`, `--llm-extra`, `--ctx`, `-k`, `--images`, `--allow-remote-llm`) and
 needs a running LLM runtime:
 
 ```bash

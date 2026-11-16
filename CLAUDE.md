@@ -6,7 +6,7 @@ labrador is a learning-sized (~2,300 lines) local multimodal search tool built o
 
 ## Pipeline
 
-`extractors` → *units* → `embedder` → `store` (SQLite: vectors + FTS5) ← `search` ← `cli` / `web`. Each module's docstring explains its stage; read it before changing that stage.
+`extractors` → *units* → `embedder` → `store` (SQLite: vectors + FTS5) ← `search` ← `cli` / `web`. The ask path: `search` → `answer` (pack, check, mask) → `llm` (loopback only) ← `cli` / `web`. Each module's docstring explains its stage; read it before changing that stage.
 
 ## Git
 
