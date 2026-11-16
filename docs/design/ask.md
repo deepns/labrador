@@ -343,7 +343,7 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | P4 | `/api/ask` and Ask mode in the web UI | P1, P2b | ~250 | plumbing | done (#15) |
 | P5a | Fictional identity documents in `bench/make_bench.py`; `bench/data/qa.jsonl` | | ~200 | quality | done (#10) |
 | P5b | `eval --answers`; `evals/answers/REPORT.md`; choosing the default model | P3, P5a | ~200 | quality | done (#19) |
-| P6 | `--images`: vision models read the original file | P5b | ~150 | quality | in review |
+| P6 | `--images`: vision models read the original file | P5b | ~150 | quality | in review (#20) |
 | P6b | Degraded-scan rows in `qa.jsonl` (OCR misreads a digit); `eval --answers` records which sources had a picture; rerun with and without `--images` | P6 | ~80 | quality | not started |
 | P7 | Optional: an MCP `search` tool, `--extra mlx`, span selection | | | optional | not planned |
 | D1 | `docs/README.md`, `installation.md`, `usage/quickstart.md`; `cli.build_parser()`; `tests/test_docs.py` (links, flags, quick start) | | ~400 | docs | done (#9) |
