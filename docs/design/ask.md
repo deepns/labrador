@@ -351,5 +351,5 @@ its tests, updates the docs for its change, and updates its row here. A phase th
 | D3 | `faq.md`, `security-privacy.md`, root `SECURITY.md` | D1 | ~350 | docs | done (#13) |
 | D4 | `scripts/gen_cli_reference.py`, `reference/cli.md`, `reference/configuration.md` and their tests; `CHANGELOG.md` | D1 | ~350 | docs | done (#17) |
 
-**Next:** a generation deadline and `max_tokens` cap in `llm.py` (an `--images` run hung for 2 h 44 min; see
-[the answers report](../../evals/answers/REPORT.md#the-hung-run---images---ctx-8192)), then P6b. P7 stays optional.
+**Next:** P6b, now that P6 has landed and `llm.py` caps each generation (`llm_deadline_s`,
+`llm_max_tokens`). P7 stays optional.

@@ -63,6 +63,8 @@ Used by `labrador ask`, Ask mode in `labrador serve`, and `labrador eval --answe
 | `llm_model` | `qwen3.5:4b` | `--model`, `LABRADOR_LLM_MODEL` |
 | `llm_extra` | `{"keep_alive": "2m"}` | `--llm-extra` (a JSON object merged over the default) |
 | `temperature` | `0.0` | |
+| `llm_deadline_s` | `300` | wall-clock cap on one answer, thinking included |
+| `llm_max_tokens` | `2048` | sent as `max_tokens`; override with `--llm-extra '{"max_tokens": 4096}'` |
 | `ask_search_k` | `10` | hits retrieved per question; raised to at least `--k` |
 | `ask_sources` | `5` | `--k` on `ask` and `eval --answers` (hits packed into the prompt) |
 | `source_tokens` | `1500` | cap per source, counted as characters / 4 |

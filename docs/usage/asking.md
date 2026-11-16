@@ -45,8 +45,9 @@ there.
 cites worse sources, so the default keeps it on. The
 defaults also come from `LABRADOR_LLM_URL` and `LABRADOR_LLM_MODEL`.
 
-The first question after the model has been idle loads it into memory and can take a minute or two (the request
-times out after 5 minutes).
+The first question after the model has been idle loads it into memory and can take a minute or two (one answer is
+stopped after 5 minutes overall, `llm_deadline_s`, and capped at 2048 tokens, `llm_max_tokens`; override the cap
+with `--llm-extra`).
 
 ## Reading the result
 
@@ -92,8 +93,8 @@ local LLM. In the web UI, tick "Read pictures" in Ask mode. `eval --answers` tak
 
 Expect it to be slower and not necessarily better. On the benchmark, where OCR already reads every document
 correctly, `--images` didn't improve any answer. Answers took about 3× longer on average, some passport questions
-took over 2 minutes, and one request never finished. labrador doesn't yet put a time limit on a generation, so
-press Ctrl-C if an answer hangs; nothing is saved, so this is safe. See
+took over 2 minutes, and one request ran for hours before labrador had an overall deadline; it now stops after 5
+minutes (`llm_deadline_s`). See
 [the answers report](../../evals/answers/REPORT.md#reading-pictures---images-p6).
 
 ## Masking

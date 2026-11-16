@@ -5,6 +5,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 
 import httpx
 import pytest
@@ -117,6 +118,53 @@ def test_complete_with_and_without_schema():
         "type": "json_schema", "json_schema": {"name": "answer", "schema": {"type": "object"}, "strict": True}}
 
 
+def endless_sse():
+    while True:
+        time.sleep(0.01)
+        yield b'data: {"choices":[{"delta":{"reasoning":"hmm"}}]}\n\n'
+
+
+def test_stream_deadline_stops_endless_reasoning():
+    c = make(lambda req: httpx.Response(200, content=endless_sse()), deadline=0.2)
+    t0 = time.monotonic()
+    with pytest.raises(LLMError, match="deadline"):
+        list(c.stream(MSGS))
+    assert time.monotonic() - t0 < 5
+
+
+def test_complete_deadline_stops_slow_body():
+    def slow_body():
+        while True:
+            time.sleep(0.01)
+            yield b" "
+    c = make(lambda req: httpx.Response(200, content=slow_body()), deadline=0.2)
+    t0 = time.monotonic()
+    with pytest.raises(LLMError, match="deadline"):
+        c.complete(MSGS)
+    assert time.monotonic() - t0 < 5
+
+
+def test_max_tokens_sent_and_overridable():
+    bodies = []
+
+    def handler(req):
+        bodies.append(json.loads(req.content))
+        if bodies[-1]["stream"]:
+            return httpx.Response(200, content=b"data: [DONE]\n\n")
+        return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}]})
+
+    c = make(handler)
+    list(c.stream(MSGS))
+    c.complete(MSGS)
+    over = OpenAICompatLLM("http://127.0.0.1:1/v1", "m", extra={"max_tokens": 99},
+                           transport=httpx.MockTransport(handler))
+    over.complete(MSGS)
+    assert [b["max_tokens"] for b in bodies] == [2048, 2048, 99]
+    off = OpenAICompatLLM("http://127.0.0.1:1/v1", "m", max_tokens=None, transport=httpx.MockTransport(handler))
+    off.complete(MSGS)
+    assert "max_tokens" not in bodies[-1]
+
+
 def test_http_errors():
     c = make(lambda req: httpx.Response(500, text="boom"))
     with pytest.raises(LLMError, match="500"):
@@ -174,6 +222,8 @@ def test_load_llm(monkeypatch, capsys):
     remote.allow_remote_llm = True
     assert isinstance(load_llm(remote), OpenAICompatLLM)
     assert "http://10.0.0.5:11434/v1" in capsys.readouterr().err
+    tuned = load_llm(Settings(llm_url="http://127.0.0.1:1/v1", llm_deadline_s=7, llm_max_tokens=11))
+    assert (tuned.deadline, tuned.max_tokens) == (7, 11)
     assert llm_mod.OpenAICompatLLM(remote.llm_url, "m").client.trust_env is False
 
 
