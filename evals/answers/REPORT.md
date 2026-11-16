@@ -122,11 +122,11 @@ In the 8192 run it never returned:
 - The same request finished in 130 s in the other run, so this is a nondeterministic failure of thinking mode with
   pictures, not a property of `--ctx 8192`. Without pictures, no question in either 27-row run took over 24 s.
 
-**What it means for users.** `labrador ask` has no total deadline and doesn't cap output, so a runaway generation
-hangs the command until Ctrl-C, and the web UI until the tab is closed. The fix belongs in `llm.py`, not in
-`--images`: a wall-clock deadline on `stream()` and `complete()` (counting reasoning chunks), plus a default
-`max_tokens`. It is a follow-up and isn't part of P6. Until it lands, [asking.md](../../docs/usage/asking.md) warns
-that `--images` can be slow and that Ctrl-C is safe.
+**What it means for users.** At the time, `labrador ask` had no total deadline and didn't cap output, so a runaway
+generation hung the command until Ctrl-C, and the web UI until the tab was closed. The fix landed in `llm.py` (#21),
+not in `--images`: a 300 s wall-clock deadline on `stream()` and `complete()` that counts reasoning chunks
+(`llm_deadline_s`), plus a default `max_tokens` of 2048 (`llm_max_tokens`). Both values are unmeasured; see
+[Risks and open questions](../../docs/design/ask.md#risks-and-open-questions).
 
 ### Gaps in this measurement
 
