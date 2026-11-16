@@ -57,6 +57,9 @@ class Settings:
     ask_sources: int = 5              # hits packed into the prompt
     source_tokens: int = 1500         # cap per source (chars/4)
     context_tokens: int = 4096        # prompt budget; match OLLAMA_CONTEXT_LENGTH
+    ask_images: int = 0               # sources whose original picture is attached to the prompt (0 = off)
+    ask_image_px: int = 1024          # long side of an attached picture
+    ask_image_tokens: int = 800       # estimated prompt tokens per picture, reserved from context_tokens
     allow_remote_llm: bool = False    # skip the loopback check (prints a warning)
 
 

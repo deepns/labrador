@@ -5,6 +5,10 @@ Notable changes to labrador, newest first. Phases (P0–P7, D1–D4) are rows of
 
 ## Unreleased
 
+- P6: `ask --images` (also `eval --answers --images` and a "Read pictures" box in the web UI's Ask mode) attaches the
+  original picture of the top image / PDF-page sources for a vision model; see
+  [Reading pictures](docs/usage/asking.md#reading-pictures---images). Off by default: on the benchmark it gave no
+  gain, made answers about 3× slower, and one run hung; see [the answers report](evals/answers/REPORT.md).
 - D2 (#18): usage pages for [indexing](docs/usage/indexing.md), [searching](docs/usage/searching.md), the
   [web UI](docs/usage/web-ui.md) and [evaluating](docs/usage/evaluating.md); the README is cut down to a front door
   that links to them.

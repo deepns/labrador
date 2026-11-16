@@ -64,6 +64,7 @@ answer a question from your files with a local LLM
 | `--llm-extra` | text |  | JSON object passed to the runtime, merged over the default keep_alive |
 | `--ctx` | positive int |  | prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH |
 | `--allow-remote-llm` | flag |  | skip the loopback check (sends files off-machine) |
+| `--images` | flag |  | attach the original picture of the top image/PDF-page sources (needs a vision model) |
 
 ## labrador serve
 
@@ -138,6 +139,7 @@ hit@k / MRR over {query, expect[, page]} rows; with --answers, score `ask` over 
 | `--llm-extra` | text |  | JSON object passed to the runtime, merged over the default keep_alive |
 | `--ctx` | positive int |  | prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH |
 | `--allow-remote-llm` | flag |  | skip the loopback check (sends files off-machine) |
+| `--images` | flag |  | attach the original picture of the top image/PDF-page sources (needs a vision model) |
 | `--category` | text |  | only queries of this category |
 | `--quiet` | flag |  | only the summary table |
 | `--out` | text |  | write per-query results as JSON (to compare configs) |

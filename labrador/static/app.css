@@ -40,6 +40,8 @@ dialog img { max-width: 92vw; max-height: 92vh; display: block; border-radius: 8
 .push { margin-left: auto; }
 .modes { display: flex; gap: 6px; }
 body.ask .chip[data-only] { display: none; }
+.askonly { display: none; font-size: 13px; color: var(--muted); }
+body.ask .askonly { display: inline; }
 #answer { max-width: 760px; margin: 0 auto; }
 #answer h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 6px; }
 #answer ul { margin: 0; padding: 0; list-style: none; font-size: 13px; }

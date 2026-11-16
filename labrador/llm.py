@@ -157,7 +157,7 @@ def load_llm(s: Settings) -> LLM:
     if s.llm_url == "fake":
         return FakeLLM()
     if s.allow_remote_llm:
-        print(f"warning: --allow-remote-llm: your question and file excerpts will be sent to {s.llm_url}",
+        print(f"warning: --allow-remote-llm: your question, file excerpts and any attached pictures will be sent to {s.llm_url}",
               file=sys.stderr)
     else:
         require_loopback(s.llm_url)

@@ -39,6 +39,8 @@ def _settings(a) -> Settings:
             setattr(s, attr, getattr(a, k))
     if getattr(a, "sources", None) is not None:                        # `ask --k`: sources packed into the prompt
         s.ask_sources, s.ask_search_k = a.sources, max(s.ask_search_k, a.sources)
+    if getattr(a, "images", False):
+        s.ask_images = 2
     if getattr(a, "llm_extra", None) is not None:
         try:
             extra = json.loads(a.llm_extra)
@@ -187,7 +189,8 @@ def _render_ask(events, reveal: bool) -> int:
             for x in e["sources"]:
                 page = f" p.{x['page']}" if x["page"] else ""
                 date = f", {x['modified']}" if x["modified"] else ""
-                print(f"  [{x['n']}] {_printable(x['rel_path'])}{page}  ({_printable(x['kind'])}{date})")
+                pic = ", picture" if x.get("picture") else ""
+                print(f"  [{x['n']}] {_printable(x['rel_path'])}{page}  ({_printable(x['kind'])}{date}{pic})")
             for w in e["warnings"]:
                 print(f"warning: {_printable(w)}", file=sys.stderr)
             print()
@@ -363,6 +366,7 @@ def cmd_eval_answers(a):
     if a.out:
         cfg = {"model": s.llm_model, "llm_url": s.llm_url, "llm_extra": s.llm_extra, "temperature": s.temperature,
                "context_tokens": s.context_tokens, "ask_sources": s.ask_sources, "ask_search_k": s.ask_search_k,
+               "ask_images": s.ask_images,
                "embedder": store.get_meta("embedder")}
         Path(a.out).write_text(json.dumps({"config": cfg, "summary": summary, "by_category": by_cat,
                                            "results": results}, indent=2, ensure_ascii=False))
@@ -460,6 +464,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--json", action="store_true", help="ask the model for a structured reply and print one JSON object (not streamed)")
     sp.add_argument("-k", "--k", dest="sources", type=_positive_int, help="sources to give the model (default: 5)")
     llm_flags(sp)
+    sp.add_argument("--images", action="store_true", help="attach the original picture of the top image/PDF-page sources (needs a vision model)")
     sp.set_defaults(fn=cmd_ask)
 
     sp = sub.add_parser("serve", help="web UI"); common(sp)
@@ -479,6 +484,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--answers", action="store_true", help="score `ask` answers over a qa.jsonl instead of search ranking")
     sp.add_argument("-k", "--k", dest="sources", type=_positive_int, help="with --answers: sources to give the model (default: 5)")
     llm_flags(sp)
+    sp.add_argument("--images", action="store_true", help="attach the original picture of the top image/PDF-page sources (needs a vision model)")
     sp.add_argument("--category", help="only queries of this category")
     sp.add_argument("--quiet", action="store_true", help="only the summary table")
     sp.add_argument("--out", help="write per-query results as JSON (to compare configs)")
