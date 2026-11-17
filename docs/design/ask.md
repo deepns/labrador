@@ -21,7 +21,8 @@ loopback-only posture that keeps the folder's contents on the machine.
 - No agent or tool loop, and no multi-hop reasoning. Personal lookups are single-hop.
 - No LangChain, LlamaIndex or RAGAS, and no LLM running inside the labrador process.
 - No reranker and no HyDE (see [Decisions](#decisions)).
-- No chat history, answer cache or question log, in memory or on disk.
+- No chat history, answer cache or question log, in memory or on disk. Per-request timings held in memory and
+  shown with the answer are fine; see [observability.md](observability.md).
 
 ## Architecture
 
@@ -311,7 +312,8 @@ none of them needs a model or a network:
 
 - Tested on gemma4:e4b with Ollama 0.40.16: `keep_alive` is honoured on `/v1`. A per-request `num_ctx` had no
   visible effect, and with the MLX runner a prompt larger than `OLLAMA_CONTEXT_LENGTH` was not truncated. labrador
-  keeps its own token budget and the docs still set `OLLAMA_CONTEXT_LENGTH`. Structured output (`--json`, needed by
+  keeps its own token budget and the docs still set `OLLAMA_CONTEXT_LENGTH`. O1 in [observability.md](observability.md) records the
+  runtime's real `prompt_tokens`, which shows whether the budget holds. Structured output (`--json`, needed by
   P5b's eval) is unsupported by Ollama's MLX runner (HTTP 501), so P5b must pick a runner/option that supports it
   or score the streamed text. P5b scores the streamed text, the path `ask` users see ([report](../../evals/answers/REPORT.md)).
 - The verbatim check may flag correct answers that were reformatted. Comparing without whitespace and normalising
@@ -328,7 +330,8 @@ none of them needs a model or a network:
   [evals/answers/REPORT.md](../../evals/answers/REPORT.md#reading-pictures---images-p6).
 - `llm_deadline_s = 300` and `llm_max_tokens = 2048` are unmeasured guesses, chosen to stop a runaway generation
   (one `--images` run streamed reasoning for 2 h 44 min). The cap may cut a long thinking answer short; rerun
-  `eval --answers` and check whether any answer stops at 2048 tokens before trusting it.
+  `eval --answers` and check whether any answer stops at 2048 tokens before trusting it. O1 in [observability.md](observability.md)
+  flags such answers (`cut_off`).
 - `labrador search` still shows unmasked snippets. Whether masking should apply everywhere is decided after P4.
 
 ## Rollout

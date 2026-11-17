@@ -16,3 +16,4 @@ Start with the [top-level README](../README.md) for what labrador is and how the
 - [CLI reference](reference/cli.md): every command and flag, generated from the parser
 - [Configuration](reference/configuration.md): settings, environment variables, the index layout
 - [Ask design](design/ask.md): design and rollout plan for `labrador ask`
+- [Timings design](design/observability.md): timings and `--trace` for search and ask
