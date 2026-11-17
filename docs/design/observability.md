@@ -1,6 +1,6 @@
 # Design: timings for search and ask
 
-Status: **designed, not started** (see [Rollout](#rollout)). Research: [reports/Observability for retrieval and generation.md](../../reports/Observability%20for%20retrieval%20and%20generation.md).
+Status: **O1 done; O2 to O4 not started** (see [Rollout](#rollout)). Research: [reports/Observability for retrieval and generation.md](../../reports/Observability%20for%20retrieval%20and%20generation.md).
 
 When an answer takes eight seconds, labrador can't say where the time went today. This design adds timings to
 `labrador search` and `labrador ask`, in the CLI and in the web UI. A few top-level numbers show on every answer:
@@ -266,9 +266,8 @@ All on `FakeEmbedder` and `FakeLLM`, so no model download:
 
 ## Risks and open questions
 
-- **Ollama's usage chunk is unverified.** Ollama's docs list `stream_options.include_usage` as supported. Third-party
-  traces suggest usage arrives in a final chunk with empty `choices`, but the exact layout on Ollama 0.40.x hasn't
-  been checked. O1 starts with one real request against Ollama, and the result goes here.
+- **Ollama's usage chunk.** Verified on Ollama 0.40.16: the final chunk has `"choices": []` with `usage` (prompt and
+  completion tokens) and a llama.cpp-style `timings` object (including `predicted_per_second`), then `data: [DONE]`.
 - **A runtime may reject `stream_options`.** OpenAI-compatible servers usually ignore unknown fields, but not all do.
   `--llm-extra` merges over the request body, so today it can only replace the field with `null`, not remove it.
   Check llama.cpp, LM Studio and `mlx_lm.server` in O1, then decide between dropping `null` values from
@@ -285,7 +284,7 @@ Each row is one PR, within about 400 changed lines, with its tests and doc updat
 
 | Phase | Scope | Needs | Est. lines | Status |
 |---|---|---|---|---|
-| O1 | `trace.py`; spans in `search()`, `answer.ask()`, `llm.stream()/complete()` incl. `include_usage` and `cut_off`; `FakeLLM` usage; CLI default metrics line for `ask` and `search`; `ask --json` `timings`; tests; `usage/asking.md` and `usage/searching.md` | | ~300 | not started |
+| O1 | `trace.py`; spans in `search()`, `answer.ask()`, `llm.stream()/complete()` incl. `include_usage` and `cut_off`; `FakeLLM` usage; CLI default metrics line for `ask` and `search`; `ask --json` `timings`; tests; `usage/asking.md` and `usage/searching.md` | | ~300 | done |
 | O2 | Web: `retrieval_ms` on `sources`, `timings` on `done`, the line in `app.js`; `LockedEmbedder` `lock_wait`; `tests/test_web.py`; `usage/web-ui.md` | O1 | ~150 | not started |
 | O3 | `--trace` for `ask`, `search` and `serve` (text tree, `done.trace`, `Server-Timing`); `eval --answers` timings and p50/p95; `reference/cli.md` | O1, O2 | ~200 | not started |
 | O4 | Indexing timings ([#27](https://github.com/deepns/labrador/issues/27)) | O1 | ~100 | deferred |

@@ -35,6 +35,7 @@ from .embedder import Embedder
 from .llm import LLM, LLMError
 from .search import Hit, keywords, search
 from .store import Store
+from .trace import NOOP
 
 REFUSAL = "I couldn't find that in your files."
 SYSTEM = f"""You answer questions about the user's own files using only the numbered sources.
@@ -89,8 +90,9 @@ def rarest_term(store: Store, query: str) -> str | None:
     return min(counts, key=counts.get) if counts else None
 
 
-def retrieve(store: Store, emb: Embedder, question: str, kw: str, s: Settings) -> list[Hit]:
-    return search(store, emb, question, k=s.ask_search_k, max_per_file=2, keyword_query=kw)
+def retrieve(store: Store, emb: Embedder, question: str, kw: str, s: Settings, trace=NOOP) -> list[Hit]:
+    with trace.span("retrieve"):
+        return search(store, emb, question, k=s.ask_search_k, max_per_file=2, keyword_query=kw, trace=trace)
 
 
 def load_picture(path: str, page: int | None, px: int) -> str | None:
@@ -118,41 +120,46 @@ def load_picture(path: str, page: int | None, px: int) -> str | None:
     return "data:image/jpeg;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
-def pack(hits: list[Hit], store: Store, s: Settings) -> tuple[list[Source], list[str]]:
-    hits = hits[:s.ask_sources]
-    meta = store.files_meta([h.file_id for h in hits])
-    root, cap = store.get_meta("root"), s.source_tokens * 4
-    sources, warnings = [], []
-    for n, h in enumerate(hits, 1):
-        group = [u for u in store.group_units(h.file_id, h.grp) if u["modality"] == "text" and u["text"]]
-        text = "\n".join(u["text"] for u in group) or h.snippet
-        label = KIND_LABELS.get(group[0]["kind"] if group else h.kind, h.kind)
-        try:
-            rel = str(Path(h.path).relative_to(root))
-        except (ValueError, TypeError):
-            rel = Path(h.path).name
-        mtime = meta.get(h.file_id, {}).get("mtime") or 0
-        sources.append(Source(n, h, rel, label, datetime.fromtimestamp(mtime).strftime("%Y-%m-%d") if mtime else "",
-                              text[:cap], len(text) > cap))
-        if len(text) > cap:
-            warnings.append(f"[{n}] {rel} was cut to {s.source_tokens} tokens")
-    pictured = [x for x in sources if x.hit.page is not None or extractors.file_type(Path(x.hit.path)) == "image"
-                ][:s.ask_images]
-    budget = s.context_tokens * 4 - RESERVE_CHARS - len(pictured) * s.ask_image_tokens * 4
-    while len(sources) > 1 and sum(len(x.text) + 200 for x in sources) > budget:
-        dropped = sources.pop()                       # lowest-ranked first
-        warnings.append(f"dropped [{dropped.n}] {dropped.rel_path} to fit the {s.context_tokens}-token context")
-    if len(sources) == 1 and len(sources[0].text) + 200 > budget:      # one source alone can still overflow
-        x = sources[0]
-        x.text, x.truncated = x.text[:max(budget - 200, 0)], True
-        warnings.append(f"[{x.n}] {x.rel_path} was cut to fit the {s.context_tokens}-token context")
-    for x in pictured:
-        if any(x is y for y in sources):                              # only sources that survived the drop loop
+def pack(hits: list[Hit], store: Store, s: Settings, trace=NOOP) -> tuple[list[Source], list[str]]:
+    with trace.span("pack"):
+        hits = hits[:s.ask_sources]
+        meta = store.files_meta([h.file_id for h in hits])
+        root, cap = store.get_meta("root"), s.source_tokens * 4
+        sources, warnings, n_dropped = [], [], 0
+        for n, h in enumerate(hits, 1):
+            group = [u for u in store.group_units(h.file_id, h.grp) if u["modality"] == "text" and u["text"]]
+            text = "\n".join(u["text"] for u in group) or h.snippet
+            label = KIND_LABELS.get(group[0]["kind"] if group else h.kind, h.kind)
             try:
-                x.picture = load_picture(x.hit.path, x.hit.page, s.ask_image_px)
-            except Exception as e:                    # missing file, OSError, PIL or PDF error
-                warnings.append(f"[{x.n}] {x.rel_path}: couldn't read the picture ({e})")
-    return sources, warnings
+                rel = str(Path(h.path).relative_to(root))
+            except (ValueError, TypeError):
+                rel = Path(h.path).name
+            mtime = meta.get(h.file_id, {}).get("mtime") or 0
+            sources.append(Source(n, h, rel, label, datetime.fromtimestamp(mtime).strftime("%Y-%m-%d") if mtime else "",
+                                  text[:cap], len(text) > cap))
+            if len(text) > cap:
+                warnings.append(f"[{n}] {rel} was cut to {s.source_tokens} tokens")
+        pictured = [x for x in sources if x.hit.page is not None or extractors.file_type(Path(x.hit.path)) == "image"
+                    ][:s.ask_images]
+        budget = s.context_tokens * 4 - RESERVE_CHARS - len(pictured) * s.ask_image_tokens * 4
+        while len(sources) > 1 and sum(len(x.text) + 200 for x in sources) > budget:
+            dropped = sources.pop()                       # lowest-ranked first
+            n_dropped += 1
+            warnings.append(f"dropped [{dropped.n}] {dropped.rel_path} to fit the {s.context_tokens}-token context")
+        if len(sources) == 1 and len(sources[0].text) + 200 > budget:      # one source alone can still overflow
+            x = sources[0]
+            x.text, x.truncated = x.text[:max(budget - 200, 0)], True
+            warnings.append(f"[{x.n}] {x.rel_path} was cut to fit the {s.context_tokens}-token context")
+        for x in pictured:
+            if any(x is y for y in sources):                              # only sources that survived the drop loop
+                try:
+                    with trace.span("picture"):
+                        x.picture = load_picture(x.hit.path, x.hit.page, s.ask_image_px)
+                except Exception as e:                    # missing file, OSError, PIL or PDF error
+                    warnings.append(f"[{x.n}] {x.rel_path}: couldn't read the picture ({e})")
+        trace.set(n_sources=len(sources), est_tokens=sum(len(x.text) for x in sources) // 4,
+                  n_truncated=sum(x.truncated for x in sources), n_dropped=n_dropped)
+        return sources, warnings
 
 
 def build_messages(question: str, sources: list[Source], json_mode: bool = False) -> list[dict]:
@@ -350,58 +357,66 @@ def _delta(seg) -> dict:
 
 # ------------------------------------------------------------------ the pipeline
 def ask(store: Store, emb: Embedder, llm: LLM, question: str, settings: Settings, reveal: bool = False,
-        json_mode: bool = False) -> Iterator[dict]:
+        json_mode: bool = False, trace=NOOP) -> Iterator[dict]:
     kw, tried = keywords(question), False
-    if not store.keyword(kw):                              # stage 1: the filler-free query matches nothing
-        term = rarest_term(store, question)
-        if term:
-            kw, tried = term, True
-    retried = False
-    while True:
-        sources, warnings = pack(retrieve(store, emb, question, kw, settings), store, settings)
-        yield {"type": "sources", "sources": [x.to_dict() for x in sources], "warnings": warnings}
-        text, quote, masker = REFUSAL, "", Masker(reveal)
-        if sources:
-            messages = build_messages(question, sources, json_mode)
-            try:
-                if json_mode:
-                    try:
-                        obj = json.loads(llm.complete(messages, SCHEMA))
-                        text = obj["answer"] if obj["found"] else REFUSAL
-                        if obj["found"]:
-                            text += "".join(f" [{n}]" for n in obj["citations"] if f"[{n}]" not in text)
-                        quote = obj.get("quote")
-                        quote = "" if quote is None else quote
-                        if not isinstance(quote, str):
-                            raise TypeError("quote must be a string")
-                    except (json.JSONDecodeError, KeyError, TypeError):
-                        raise LLMError("The model's JSON reply didn't match the schema") from None
-                    for seg in masker.feed(text) + masker.flush():
-                        yield _delta(seg)
-                else:
-                    text = ""
-                    for d in llm.stream(messages):
-                        text += d
-                        for seg in masker.feed(d):
-                            yield _delta(seg)
-                    for seg in masker.flush():
-                        yield _delta(seg)
-            except LLMError as e:
-                yield {"type": "error", "message": str(e)}
-                return
-        else:
-            for seg in masker.feed(text) + masker.flush():
-                yield _delta(seg)
-        result = check(text, sources)
-        if result.refused and not tried:
+    with trace.span("keywords"):
+        n_hits = len(store.keyword(kw))
+        if not n_hits:                                     # stage 1: the filler-free query matches nothing
             term = rarest_term(store, question)
-            if term and term != kw:
-                kw, tried, retried = term, True, True
-                yield {"type": "retry", "term": term}
-                continue
-        if json_mode and sources and quote and not result.refused and _squash(quote) not in _squash("\n".join(
-                sources[n - 1].text for n in result.citations)):
-            result.unverified.append(quote)
-            result.confidence = "low"
-        yield {"type": "done", "check": asdict(result), "retried": retried}
-        return
+            if term:
+                kw, tried = term, True
+        trace.set(n_hits=n_hits, fallback=tried)
+    retried, n_attempt = False, 0
+    while True:
+        n_attempt += 1
+        with trace.span("attempt", n=n_attempt):
+            sources, warnings = pack(retrieve(store, emb, question, kw, settings, trace), store, settings, trace)
+            yield {"type": "sources", "sources": [x.to_dict() for x in sources], "warnings": warnings}
+            text, quote, masker = REFUSAL, "", Masker(reveal)
+            if sources:
+                messages = build_messages(question, sources, json_mode)
+                try:
+                    if json_mode:
+                        try:
+                            obj = json.loads(llm.complete(messages, SCHEMA, trace=trace))
+                            text = obj["answer"] if obj["found"] else REFUSAL
+                            if obj["found"]:
+                                text += "".join(f" [{n}]" for n in obj["citations"] if f"[{n}]" not in text)
+                            quote = obj.get("quote")
+                            quote = "" if quote is None else quote
+                            if not isinstance(quote, str):
+                                raise TypeError("quote must be a string")
+                        except (json.JSONDecodeError, KeyError, TypeError):
+                            raise LLMError("The model's JSON reply didn't match the schema") from None
+                        for seg in masker.feed(text) + masker.flush():
+                            yield _delta(seg)
+                    else:
+                        text = ""
+                        for d in llm.stream(messages, trace=trace):
+                            text += d
+                            for seg in masker.feed(d):
+                                yield _delta(seg)
+                        for seg in masker.flush():
+                            yield _delta(seg)
+                except LLMError as e:
+                    yield {"type": "error", "message": str(e)}
+                    return
+            else:
+                for seg in masker.feed(text) + masker.flush():
+                    yield _delta(seg)
+            with trace.span("check"):
+                result = check(text, sources)
+                if json_mode and sources and quote and not result.refused and _squash(quote) not in _squash("\n".join(
+                        sources[n - 1].text for n in result.citations)):
+                    result.unverified.append(quote)
+                    result.confidence = "low"
+            if result.refused and not tried:
+                with trace.span("keywords"):               # the retry's rarest term
+                    term = rarest_term(store, question)
+                    trace.set(fallback=True)
+                if term and term != kw:
+                    kw, tried, retried = term, True, True
+                    yield {"type": "retry", "term": term}
+                    continue
+            yield {"type": "done", "check": asdict(result), "retried": retried}
+            return

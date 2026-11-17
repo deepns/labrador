@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 
 from .config import HOME, Settings, index_dir_for
+from .trace import Trace
 
 
 def _settings(a) -> Settings:
@@ -113,7 +114,10 @@ def cmd_index(a):
 def cmd_search(a):
     from .search import search
     store, emb, _ = _open(a)
+    t0 = time.perf_counter()
     hits = search(store, emb, a.query, k=a.k, only=a.only)
+    sys.stdout.flush()
+    print(f"{len(hits)} result{'s' * (len(hits) != 1)} in {time.perf_counter() - t0:.2f} s", file=sys.stderr)
     if a.json:
         print(json.dumps([h.to_dict() for h in hits], indent=2))
         return
@@ -162,8 +166,8 @@ def _mask_check(c: dict, reveal: bool) -> tuple[dict, bool]:
     return {**c, "unverified": toks}, any(not isinstance(x, str) for s in segs for x in s)
 
 
-def _collect_ask(events, reveal: bool) -> int:
-    """`ask --json`: print one JSON object (sources, warnings, final answer, check, retried). Returns the exit code."""
+def _collect_ask(events, reveal: bool, trace=None) -> int:
+    """`ask --json`: print one JSON object (sources, warnings, final answer, check, retried, timings). Returns the exit code."""
     out = {"sources": [], "warnings": [], "answer": "", "check": None, "retried": False}
     for e in events:
         if e["type"] == "sources":
@@ -176,6 +180,8 @@ def _collect_ask(events, reveal: bool) -> int:
         elif e["type"] == "done":
             out["check"], _ = _mask_check(e["check"], reveal)
             out["retried"] = e["retried"]
+    if trace:
+        out["timings"] = trace.summary()
     print(json.dumps(out, ensure_ascii=False, indent=2))
     return 0
 
@@ -210,6 +216,20 @@ def _render_ask(events, reveal: bool) -> int:
     return 0
 
 
+def _timings_line(t: dict) -> str:
+    """The metrics under the status line, e.g. `retrieval 0.21 s · answer 4.8 s · 38 tok/s`; null metrics are left out."""
+    parts = []
+    for label, key, scale, fmt in (("retrieval", "retrieval_ms", 1000, "{:.2f} s"), ("answer", "answer_ms", 1000, "{:.1f} s"),
+                                   ("first token", "ttft_ms", 1000, "{:.1f} s")):
+        if t.get(key) is not None:
+            parts.append(f"{label} " + fmt.format(t[key] / scale))
+    if t.get("tok_s") is not None:
+        parts.append(f"{t['tok_s']:.0f} tok/s")
+    if t.get("prompt_tokens") is not None and t.get("completion_tokens") is not None:
+        parts.append(f"{t['prompt_tokens']:,.0f} \u2192 {t['completion_tokens']:,.0f} tokens")
+    return " \u00b7 ".join(parts)
+
+
 def _warn_cloud_models(llm) -> None:
     try:
         cloud = any(m.endswith("-cloud") for m in llm.models())
@@ -231,8 +251,19 @@ def cmd_ask(a):
     store, emb, s = _open(a, s)
     if hasattr(llm, "models"):
         _warn_cloud_models(llm)
-    events = ask(store, emb, llm, a.question, s, a.reveal, a.json)
-    sys.exit((_collect_ask if a.json else _render_ask)(events, a.reveal))
+    trace = Trace()
+    events = ask(store, emb, llm, a.question, s, a.reveal, a.json, trace=trace)
+    if a.json:
+        sys.exit(_collect_ask(events, a.reveal, trace))
+    code = _render_ask(events, a.reveal)
+    if code == 0:                                   # the generator has finished, so the trace is complete
+        sm = trace.summary()
+        sys.stdout.flush()                          # keep the stderr lines off the end of the answer when piped
+        if line := _timings_line(sm):
+            print(line, file=sys.stderr)
+        if sm["cut_off"]:
+            print(f"the answer was cut off at llm_max_tokens ({s.llm_max_tokens})", file=sys.stderr)
+    sys.exit(code)
 
 
 def cmd_stats(a):

@@ -29,6 +29,8 @@ retrievers found it, then a snippet and, for pictures, the thumbnail's path (pat
 | `--json` | | One JSON array of results, for scripts |
 | `--index DIR` | last index | Search a different index |
 
+Stderr gets a count and the time, e.g. `12 results in 0.18 s`; `--json` stdout is unchanged.
+
 ## How ranking works
 
 1. Your query is embedded once, with EmbeddingGemma 2's `SearchQuery` prompt.

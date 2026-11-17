@@ -74,7 +74,7 @@ def test_retry_event(env):
 
 def test_llm_error_becomes_error_event(env):
     class Boom(FakeLLM):
-        def stream(self, messages):
+        def stream(self, messages, trace=None):
             raise LLMError("runtime is down")
             yield
     _, ev = ask(client(env, Boom()))
@@ -83,7 +83,7 @@ def test_llm_error_becomes_error_event(env):
 
 def test_unexpected_exception_hides_traceback(env):
     class Bug(FakeLLM):
-        def stream(self, messages):
+        def stream(self, messages, trace=None):
             raise ValueError("secret detail")
             yield
     _, ev = ask(client(env, Bug()))
@@ -126,7 +126,7 @@ def test_model_lock_not_held_during_generation(env, monkeypatch):
     held = []
 
     class Probe(LLM):
-        def stream(self, messages):
+        def stream(self, messages, trace=None):
             held.append(lock.locked())
             yield "Fine [1]."
 

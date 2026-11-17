@@ -71,7 +71,7 @@ def test_retry_scores_only_second_answer(setup):
 
 
 class ErrLLM(FakeLLM):
-    def stream(self, messages):
+    def stream(self, messages, trace=None):
         if not self.calls:
             self.calls.append(messages)
             raise LLMError("boom")

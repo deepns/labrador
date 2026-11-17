@@ -20,7 +20,9 @@ from labrador.config import Settings
 from labrador.embedder import load_embedder
 from labrador.indexer import Indexer
 from labrador.llm import FakeLLM
+from labrador.search import search
 from labrador.store import Store
+from labrador.trace import Trace
 
 LINE1 = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<"
 LINE2 = "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
@@ -319,3 +321,39 @@ def test_ask_sends_pictures(img_env):
     events = list(ask(store, emb, llm, "passport number", s))
     assert any(x["picture"] for x in events[0]["sources"])
     assert any(p["type"] == "image_url" for p in llm.calls[0][1]["content"])
+
+
+def test_ask_spans_and_forced_retry(env):
+    store, emb, s = env
+    t = Trace()
+    events = list(ask(store, emb, FakeLLM([REFUSAL, "Policy ZX9917342 [1]."]), "what is the policy number", s, trace=t))
+    assert events[-1]["retried"]
+    root = t.tree()["children"]
+    assert [c["name"] for c in root] == ["keywords", "attempt", "attempt"]
+    names = lambda n: [c["name"] for c in n["children"]]               # noqa: E731
+    assert names(root[1]) == ["retrieve", "pack", "generate", "check", "keywords"]    # the retry's rarest_term
+    assert names(root[2]) == ["retrieve", "pack", "generate", "check"]
+    assert names(root[2]["children"][0]) == ["matrix", "embed_query", "dense", "keyword", "collapse", "enrich"]
+    sm = t.summary()
+    assert sm["attempts"] == 2 and sm["cut_off"] is False and sm["completion_tokens"] > 0 and sm["prompt_tokens"] > 0
+    assert sm["ttft_ms"] is None and sm["tok_s"] is None
+    timed = [n for n in t._walk() if n["name"] in ("keywords", "retrieve", "pack")]
+    assert len(timed) == 6 and sm["retrieval_ms"] == round(sum(n["ms"] for n in timed), 1)
+
+
+def test_ask_trace_json_mode_and_default(env):
+    store, emb, s = env
+    ok = '{"found": true, "answer": "Number L898902C3", "citations": [1], "quote": "Passport number L898902C3"}'
+    t = Trace()
+    list(ask(store, emb, FakeLLM([ok]), "passport number", s, json_mode=True, trace=t))
+    assert t.summary()["completion_tokens"] == 1 and t.summary()["attempts"] == 1
+    assert [e["type"] for e in ask(store, emb, FakeLLM(), "passport number", s)][-1] == "done"     # no trace: unchanged
+
+
+def test_matrix_cache_hit_attr(env):
+    store, emb, _ = env
+    store._cache = None
+    for hit in (False, True):
+        t = Trace()
+        search(store, emb, "passport", trace=t)
+        assert t.tree()["children"][0]["attrs"]["cache_hit"] is hit

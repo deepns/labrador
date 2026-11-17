@@ -1,5 +1,7 @@
 """`labrador ask` CLI tests: fake embedder, FakeLLM or scripted LLMs, no model or network."""
 
+import json
+
 import pytest
 
 from labrador import cli, config
@@ -104,7 +106,7 @@ def test_ask_bad_llm_extra(folder, capsys):
 
 def test_ask_llm_error_exits_1(folder, capsys, monkeypatch):
     class Down(FakeLLM):
-        def stream(self, messages):
+        def stream(self, messages, trace=None):
             from labrador.llm import LLMError
             raise LLMError("Can't reach the LLM server")
             yield
@@ -138,7 +140,7 @@ def test_ask_json_unsupported_is_one_line_error(folder, capsys, monkeypatch):
     from labrador.llm import LLMError
 
     class NoSchema(FakeLLM):
-        def complete(self, messages, schema=None):
+        def complete(self, messages, schema=None, trace=None):
             raise LLMError("The LLM runtime doesn't support structured output (Ollama's MLX runner doesn't).")
 
     use_llm(monkeypatch, NoSchema())
@@ -175,3 +177,39 @@ def test_ask_images_marks_picture_sources(folder, capsys):
     code, out, _ = run_ask(capsys, "passport number", "--llm-url", "fake", "--images")
     assert code == 0 and "scan.png" in out and ", picture)" in out
     assert ", picture" not in run_ask(capsys, "passport number", "--llm-url", "fake")[1]
+
+
+def test_ask_timings_line_on_stderr(folder, capsys, monkeypatch):
+    code, out, err = run_ask(capsys, "passport number", "--llm-url", "fake")
+    assert code == 0 and "retrieval " in err and "answer " in err and "\u2192" in err and "tokens" in err
+    assert "retrieval" not in out
+    assert "first token" not in err and "tok/s" not in err            # null metrics are left out
+    assert "cut off" not in err
+
+
+def test_ask_timings_line_cut_off_warning(folder, capsys, monkeypatch):
+    class Cut(FakeLLM):
+        def stream(self, messages, trace=None):
+            with trace.span("generate"):
+                trace.set(cut_off=True, ttft_ms=100.0, completion_tokens=None, prompt_tokens=50)
+            yield "Number [1]"
+
+    use_llm(monkeypatch, Cut())
+    _, _, err = run_ask(capsys, "passport number")
+    assert "the answer was cut off at llm_max_tokens (2048)" in err
+    assert "first token 0.1 s" in err and "\u2192" not in err         # the tokens part needs both counts
+
+
+def test_ask_json_has_timings(folder, capsys, monkeypatch):
+    use_llm(monkeypatch, FakeLLM(['{"found": true, "answer": "x", "citations": [1], "quote": ""}']))
+    code, out, _ = run_ask(capsys, "passport number", "--json")
+    t = json.loads(out)["timings"]
+    assert code == 0 and t["attempts"] == 1 and t["answer_ms"] >= 0 and t["ttft_ms"] is None
+
+
+def test_search_prints_count_on_stderr(folder, capsys):
+    capsys.readouterr()
+    cli.main(["search", "passport", "--json"])
+    out = capsys.readouterr()
+    assert isinstance(json.loads(out.out), list) and out.err.strip().endswith(" s") and " in " in out.err
+    assert out.err.startswith("1 result in ")
