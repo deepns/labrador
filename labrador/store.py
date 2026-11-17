@@ -125,6 +125,10 @@ class Store:
             self.db.commit()
 
     # ------------------------------------------------------------ search support
+    def matrix_cached(self) -> bool:
+        """True when matrix() will return its cache without reading the units table."""
+        return self._cache is not None and self._cache_ver == self.get_meta("version", "0")
+
     def matrix(self):
         """(unit_ids, modalities, vectors) cached until the index changes."""
         ver = self.get_meta("version", "0")

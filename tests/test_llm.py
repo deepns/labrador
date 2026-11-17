@@ -13,6 +13,7 @@ import pytest
 from labrador import llm as llm_mod
 from labrador.config import Settings
 from labrador.llm import FakeLLM, LLMError, OpenAICompatLLM, load_llm, require_loopback
+from labrador.trace import Trace
 
 MSGS = [{"role": "user", "content": "hi"}]
 
@@ -232,3 +233,64 @@ def test_llm_url_env_override():
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True,
                          env={**os.environ, "LABRADOR_LLM_URL": "http://127.0.0.1:1/v1"})
     assert out.stdout.strip() == "http://127.0.0.1:1/v1"
+
+
+def gen(t):
+    return t.tree()["children"][0]
+
+
+def sse(*chunks):
+    return b"".join(b"data: " + c.encode() + b"\n\n" for c in chunks) + b"data: [DONE]\n\n"
+
+
+def test_stream_records_usage_and_timings():
+    seen = {}
+    body = sse('{"choices":[{"delta":{"role":"assistant"}}]}',
+               '{"choices":[{"delta":{"content":"Hel"}}]}',
+               '{"choices":[{"delta":{"content":"lo"},"finish_reason":"length"}],"timings":{"predicted_per_second":41.5,"model":"x"}}',
+               '{"choices":[],"usage":{"prompt_tokens":120,"completion_tokens":7}}')
+
+    def handler(req):
+        seen["body"] = json.loads(req.content)
+        return httpx.Response(200, content=body)
+
+    t = Trace()
+    assert "".join(make(handler).stream(MSGS, trace=t)) == "Hello"
+    assert seen["body"]["stream_options"] == {"include_usage": True}
+    a = gen(t)["attrs"]
+    assert gen(t)["name"] == "generate"
+    assert a["prompt_tokens"] == 120 and a["completion_tokens"] == 7 and a["cut_off"] is True
+    assert a["n_chunks"] == 2 and a["rt_predicted_per_second"] == 41.5 and "rt_model" not in a
+    assert all(a[k] is not None for k in ("headers_ms", "first_chunk_ms", "ttft_ms"))
+    s = t.summary()
+    assert s["tok_s"] == 41.5 and s["cut_off"] is True and s["prompt_tokens"] == 120
+    over = make(handler)
+    over.extra = {"stream_options": None}
+    list(over.stream(MSGS))
+    assert seen["body"]["stream_options"] is None                      # llm_extra still wins
+
+
+def test_stream_without_usage_gives_null_tokens():
+    t = Trace()
+    ok = make(lambda req: httpx.Response(200, content=sse('{"choices":[{"delta":{"content":"a"},"finish_reason":"stop"}]}')))
+    list(ok.stream(MSGS, trace=t))
+    s = t.summary()
+    assert s["prompt_tokens"] is None and s["completion_tokens"] is None and s["tok_s"] is None
+    assert s["cut_off"] is False and s["ttft_ms"] is not None
+
+
+def test_complete_records_usage_without_ttft():
+    reply = {"choices": [{"message": {"content": "ok"}, "finish_reason": "length"}],
+             "usage": {"prompt_tokens": 9, "completion_tokens": 3}}
+    t = Trace()
+    assert make(lambda req: httpx.Response(200, json=reply)).complete(MSGS, trace=t) == "ok"
+    a = gen(t)["attrs"]
+    assert a["prompt_tokens"] == 9 and a["completion_tokens"] == 3 and a["cut_off"] is True and "ttft_ms" not in a
+
+
+def test_fake_llm_usage_with_picture_content():
+    msgs = [{"role": "user", "content": [{"type": "text", "text": "x" * 40}, {"type": "image_url", "image_url": {"url": "d"}}]}]
+    t = Trace()
+    list(FakeLLM(["abcdefg"], chunk=3).stream(msgs, trace=t))
+    a = gen(t)["attrs"]
+    assert a["prompt_tokens"] == 10 and a["completion_tokens"] == a["n_chunks"] == 3

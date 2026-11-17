@@ -36,7 +36,7 @@ labrador ask "my passport number" --llm-url http://127.0.0.1:8080/v1   # another
 labrador ask "my passport number" --ctx 8192 -k 8                  # larger prompt budget, more sources
 ```
 
-`--json` prints one object, `{sources, warnings, answer, check, retried}`, masked unless `--reveal`. It needs a
+`--json` prints one object, `{sources, warnings, answer, check, retried, timings}`, masked unless `--reveal`. It needs a
 runtime with structured-output support. Ollama's MLX runner returns an error for it (HTTP 501); use plain asking
 there.
 
@@ -54,6 +54,11 @@ with `--llm-extra`).
 - **Sources** are the files the model saw, numbered. `[n]` in the answer maps to that list: the path, the page and the
   file's modified date come from the index, never from the model.
 - **Warnings** go to stderr when a source was cut to fit, or dropped to stay inside `--ctx`.
+- **The timings line** goes to stderr after the status line, so `> answer.txt` stays clean:
+  `retrieval 0.21 s · answer 4.8 s · first token 1.2 s · 38 tok/s · 3,480 → 182 tokens`. Retrieval is search plus
+  packing, answer is generation, and the token counts are what the runtime reports (never estimated). Anything the
+  runtime doesn't report is left out. If the answer hit `llm_max_tokens`, a line says so. `--json` carries the same
+  numbers (in milliseconds, `null` when unknown) under `timings`.
 - **The status line** reports what labrador checked in code, not what the model claims: the cited sources exist, every
   ID and date in the answer appears verbatim in a cited source, and MRZ check digits on passports are valid.
 
