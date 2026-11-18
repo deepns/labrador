@@ -270,7 +270,7 @@ All on `FakeEmbedder` and `FakeLLM`, so no model download:
   completion tokens) and a llama.cpp-style `timings` object (including `predicted_per_second`), then `data: [DONE]`.
 - **A runtime may reject `stream_options`.** OpenAI-compatible servers usually ignore unknown fields, but not all do.
   `--llm-extra` merges over the request body, so today it can only replace the field with `null`, not remove it.
-  Check llama.cpp, LM Studio and `mlx_lm.server` in O1, then decide between dropping `null` values from
+  Still open after O1 (only Ollama is checked): check llama.cpp, LM Studio and `mlx_lm.server`, then decide between dropping `null` values from
   `llm_extra` and retrying once without `stream_options` on a 4xx.
 - **`answer_ms` includes consumer time** (see [above](#streamed-spans-include-consumer-time)). Fine locally; worth
   knowing before comparing web and CLI numbers.
