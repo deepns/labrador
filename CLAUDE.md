@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-labrador is a learning-sized (~2,300 lines) local multimodal search tool built on EmbeddingGemma 2. Keep every pipeline stage visible in plain, readable code; the README's diagram and command table are the user-facing reference.
+labrador is a learning-sized (~2,500 lines) local multimodal search tool built on EmbeddingGemma 2. Keep every pipeline stage visible in plain, readable code; the README's diagram and command table are the user-facing reference.
 
 ## Pipeline
 

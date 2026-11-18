@@ -43,7 +43,9 @@ there.
 `--llm-extra '{"reasoning_effort": "none"}'` passes a JSON object to the runtime, merged over the default
 `keep_alive`; this one turns off a model's thinking (Ollama ignores `think` on `/v1`). Thinking is faster off but
 cites worse sources, so the default keeps it on. The
-defaults also come from `LABRADOR_LLM_URL` and `LABRADOR_LLM_MODEL`.
+defaults also come from `LABRADOR_LLM_URL` and `LABRADOR_LLM_MODEL`. Streaming requests also send
+`stream_options: {"include_usage": true}` so the runtime reports token counts; if a runtime rejects it, try
+`--llm-extra '{"stream_options": null}'`.
 
 The first question after the model has been idle loads it into memory and can take a minute or two (one answer is
 stopped after 5 minutes overall, `llm_deadline_s`, and capped at 2048 tokens, `llm_max_tokens`; override the cap
