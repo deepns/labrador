@@ -125,6 +125,9 @@ uv run python scripts/ask_bench.py run bench/data/qa.jsonl --index <index dir> -
 uv run python scripts/ask_bench.py summary evals/out/ask-bench
 ```
 
+`run` also takes `--llm-url`, `--ctx`, `-k`, `--limit N` (first N questions) and `--out DIR` (default
+`evals/out/ask-bench`). `summary` reads every `*.json` in its directory.
+
 `run` writes `evals/out/ask-bench/<tag>.json`; `evals/out/` is gitignored, so keep raw results there. Set
 `HF_HUB_OFFLINE=1` to stop the embedder retrying the Hugging Face Hub when the network is down. The span names and
 fields are in [the design](../design/observability.md).
