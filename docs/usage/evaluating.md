@@ -111,3 +111,20 @@ Scoring is deterministic and needs no LLM judge. It scores the streamed answer, 
 counts as a refusal on that row, and the command exits 1 at the end. The `--out` file also records the model, URL,
 options and context size. [evals/answers/REPORT.md](../../evals/answers/REPORT.md) compares the default model
 with the alternatives.
+
+## Timing `ask`
+
+`scripts/ask_bench.py` measures where an `ask` spends its time. `run` loads the embedder once (like `labrador serve`),
+asks every question in a QA file with a `Trace` and scores the answers like `eval --answers`. It records the embedder's
+load and first-embed times and, per question, the timings and span tree. `summary` then prints one row per run:
+quality rates, p50/p95 of total, retrieval and query embedding, p50 of load+prefill, thinking, decode, first token,
+runtime tokens per second and prompt tokens against the packer's estimate, and each stage's share of wall time.
+
+```bash
+uv run python scripts/ask_bench.py run bench/data/qa.jsonl --index <index dir> --tag gemma4 [--model M] [--extra '{"reasoning_effort": "none"}']
+uv run python scripts/ask_bench.py summary evals/out/ask-bench
+```
+
+`run` writes `evals/out/ask-bench/<tag>.json`; `evals/out/` is gitignored, so keep raw results there. Set
+`HF_HUB_OFFLINE=1` to stop the embedder retrying the Hugging Face Hub when the network is down. The span names and
+fields are in [the design](../design/observability.md).
