@@ -9,6 +9,8 @@ Notable changes to labrador, newest first. Phases (P0–P7, D1–D4) are rows of
   and `ask --json` gains `timings`; `search` prints `N results in X s` to stderr. Streaming requests now send
   `stream_options: {"include_usage": true}` so the runtime reports token counts. See
   [Reading the result](docs/usage/asking.md#reading-the-result) and [the design](docs/design/observability.md).
+- O2: the web UI's Ask mode shows the same timings line under the status line (`sources` events carry
+  `retrieval_ms`, `done` carries `timings`). See [the design](docs/design/observability.md).
 - LLM limits (#21): `ask`, Ask mode and `eval --answers` stop a generation after 300 s overall (`llm_deadline_s`,
   thinking included) and send `max_tokens: 2048` (`llm_max_tokens`), so a model that thinks without end no longer
   hangs them.

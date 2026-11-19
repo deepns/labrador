@@ -76,13 +76,24 @@ function statusLine(c, masked) {                     // port of cli._status_line
   parts.forEach((p, i) => { if (i) out.append(" · "); out.append(p); });
   return out;
 }
+function timingsLine(t) {                            // port of cli._timings_line; nulls are left out
+  const parts = [], n = (v, d) => v.toFixed(d);
+  if (t.retrieval_ms != null) parts.push("retrieval " + n(t.retrieval_ms / 1000, 2) + " s");
+  if (t.answer_ms != null) parts.push("answer " + n(t.answer_ms / 1000, 1) + " s");
+  if (t.ttft_ms != null) parts.push("first token " + n(t.ttft_ms / 1000, 1) + " s");
+  if (t.tok_s != null) parts.push(Math.round(t.tok_s) + " tok/s");
+  if (t.prompt_tokens != null && t.completion_tokens != null)
+    parts.push(`${Math.round(t.prompt_tokens).toLocaleString("en-US")} → ${Math.round(t.completion_tokens).toLocaleString("en-US")} tokens`);
+  return parts.join(" · ");
+}
 async function ask() {
   const q = $("q").value.trim(); if (!q) return;
   if (abort) abort.abort();
   abort = new AbortController();
   const box = $("answer"); box.replaceChildren();
   const src = el("div"), warn = el("div"), text = el("div", "", ""), check = el("div");
-  text.id = "text"; check.id = "check"; box.append(src, warn, text, check);
+  const timings = el("div", "", "timings");
+  text.id = "text"; check.id = "check"; box.append(src, warn, text, check, timings);
   let masked = false, waiting = true;           // waiting: no delta yet
   const status = (m) => { check.replaceChildren(m); };
   status("Searching…");
@@ -101,13 +112,20 @@ async function ask() {
         }
         warn.replaceChildren(...e.warnings.map(w => el("div", "warning: " + w, "warn")));
         if (waiting && e.sources.length) status("Writing the answer…");
+        if (e.retrieval_ms != null) timings.replaceChildren(el("div", `retrieval ${(e.retrieval_ms / 1000).toFixed(2)} s`));
       } else if (e.type === "delta") {
         if (waiting) { waiting = false; status(""); }
         if ("text" in e) text.append(e.text); else { masked = true; text.append(seg(e)); }
       } else if (e.type === "retry") {
-        text.replaceChildren(); masked = false; waiting = true; status(`No answer yet, retrying with “${e.term}”`);
+        text.replaceChildren(); timings.replaceChildren(); masked = false; waiting = true; status(`No answer yet, retrying with “${e.term}”`);
       } else if (e.type === "error") status("error: " + e.message);
-      else if (e.type === "done") status(statusLine(e.check, masked || e.check.unverified.some(t => typeof t !== "string")));
+      else if (e.type === "done") {
+        status(statusLine(e.check, masked || e.check.unverified.some(t => typeof t !== "string")));
+        if (e.timings) {
+          timings.replaceChildren(el("div", timingsLine(e.timings)));
+          if (e.timings.cut_off) timings.append(el("div", "the answer was cut off at llm_max_tokens"));
+        }
+      }
     };
     for (;;) {
       const { done, value } = await rd.read();

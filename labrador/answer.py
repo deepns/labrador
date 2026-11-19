@@ -366,12 +366,16 @@ def ask(store: Store, emb: Embedder, llm: LLM, question: str, settings: Settings
             if term:
                 kw, tried = term, True
         trace.set(n_hits=n_hits, fallback=tried)
-    retried, n_attempt = False, 0
+    retried, n_attempt, prev_ms = False, 0, 0.0
     while True:
         n_attempt += 1
         with trace.span("attempt", n=n_attempt):
             sources, warnings = pack(retrieve(store, emb, question, kw, settings, trace), store, settings, trace)
-            yield {"type": "sources", "sources": [x.to_dict() for x in sources], "warnings": warnings}
+            ev = {"type": "sources", "sources": [x.to_dict() for x in sources], "warnings": warnings}
+            if trace is not NOOP:                          # keywords + retrieve + pack since the last sources event
+                total = trace.summary()["retrieval_ms"]
+                ev["retrieval_ms"], prev_ms = round(total - prev_ms, 1), total
+            yield ev
             text, quote, masker = REFUSAL, "", Masker(reveal)
             if sources:
                 messages = build_messages(question, sources, json_mode)
@@ -418,5 +422,8 @@ def ask(store: Store, emb: Embedder, llm: LLM, question: str, settings: Settings
                     kw, tried, retried = term, True, True
                     yield {"type": "retry", "term": term}
                     continue
-            yield {"type": "done", "check": asdict(result), "retried": retried}
+            ev = {"type": "done", "check": asdict(result), "retried": retried}
+            if trace is not NOOP:
+                ev["timings"] = trace.summary()
+            yield ev
             return

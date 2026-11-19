@@ -207,6 +207,16 @@ def test_retry_happens_exactly_once(env):
     assert len(llm.calls) == 1 and "retry" not in [e["type"] for e in events]
 
 
+def test_trace_adds_timings_and_noop_leaves_events_unchanged(env):
+    q = "what is the policy number"
+    events, _ = run(env, [REFUSAL, "Policy ZX9917342 [1]."], q=q)          # default trace=NOOP
+    assert all("retrieval_ms" not in e and "timings" not in e for e in events)
+    traced, _ = run(env, [REFUSAL, "Policy ZX9917342 [1]."], q=q, trace=Trace())
+    assert [e for e in traced if e["type"] not in ("sources", "done")] == [e for e in events if e["type"] not in ("sources", "done")]
+    for a, b in zip(events, traced):
+        assert {k: v for k, v in b.items() if k not in ("retrieval_ms", "timings")} == a
+
+
 def test_json_mode(env):
     ok = '{"found": true, "answer": "Number L898902C3", "citations": [1], "quote": "Passport number L898902C3"}'
     assert run(env, [ok], json_mode=True)[0][-1]["check"]["confidence"] == "high"

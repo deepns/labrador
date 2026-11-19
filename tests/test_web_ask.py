@@ -12,7 +12,8 @@ from labrador.embedder import load_embedder
 from labrador.indexer import Indexer
 from labrador.llm import LLM, FakeLLM, LLMError
 from labrador.store import Store
-from labrador.web import create_app
+from labrador.trace import Trace
+from labrador.web import LockedEmbedder, create_app
 
 JSON = {"content-type": "application/json"}
 
@@ -115,7 +116,7 @@ def test_cross_origin_post_refused(env):
 
 def test_k_is_clamped_and_applied(env, monkeypatch):
     seen = []
-    monkeypatch.setattr("labrador.web.ask", lambda store, emb, llm, q, s, reveal: seen.append(s) or iter([]))
+    monkeypatch.setattr("labrador.web.ask", lambda store, emb, llm, q, s, reveal, trace: seen.append(s) or iter([]))
     c = client(env, FakeLLM(), settings=Settings(ask_search_k=10, ask_sources=5))
     for body in ({}, {"k": 0}, {"k": 3}, {"k": 99}):
         c.post("/api/ask", json={"q": "x", **body})
@@ -164,3 +165,31 @@ def test_images_flag_reaches_the_prompt(env, tmp_path):
     llm2 = FakeLLM()
     ask(client(env, llm2), images=False)
     assert isinstance(llm2.calls[0][1]["content"], str)
+
+
+def test_done_timings_and_sources_retrieval_ms(env):
+    _, ev = ask(client(env, FakeLLM(["The number is fine [1]."])))
+    t = ev[-1]["timings"]
+    assert {"retrieval_ms", "answer_ms", "total_ms", "ttft_ms", "tok_s", "cut_off", "attempts"} <= set(t)
+    assert all(isinstance(t[k], (int, float)) for k in ("retrieval_ms", "answer_ms", "total_ms"))
+    assert t["attempts"] == 1 and isinstance(ev[0]["retrieval_ms"], (int, float))
+
+
+def test_retry_gives_each_sources_event_its_own_retrieval_ms(env):
+    _, ev = ask(client(env, FakeLLM(["I couldn't find that in your files.", "Number L898902C3 [1]."])),
+                q="what is the passport number for Anna")
+    src = [e for e in ev if e["type"] == "sources"]
+    assert len(src) == 2 and all(isinstance(e["retrieval_ms"], (int, float)) and e["retrieval_ms"] >= 0 for e in src)
+    assert ev[-1]["timings"]["attempts"] == 2
+    assert round(sum(e["retrieval_ms"] for e in src), 1) == pytest.approx(ev[-1]["timings"]["retrieval_ms"], abs=0.2)
+
+
+def test_locked_embedder_records_lock_wait_span():
+    class Emb:
+        def embed_query(self, q):
+            return [1.0]
+
+    tr = Trace()
+    lock = threading.Lock()
+    assert LockedEmbedder(Emb(), lock, tr).embed_query("x") == [1.0]
+    assert [c["name"] for c in tr.tree()["children"]] == ["lock_wait"] and not lock.locked()
