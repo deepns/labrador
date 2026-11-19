@@ -248,6 +248,8 @@ All on `FakeEmbedder` and `FakeLLM`, so no model download:
   carries `timings`.
 - Web (`tests/test_web_ask.py`, `tests/test_web.py`): `done.timings` and `sources.retrieval_ms` present; `Server-Timing` present only with `--trace` and contains only
   `SPANS` names.
+- Benchmark: `scripts/ask_bench.py` (outside the O phases) times `ask` per stage over a QA file; see
+  [Timing `ask`](../usage/evaluating.md#timing-ask).
 - Manual (O2): `labrador serve` on `~/labrador-sample`, ask in the browser with the console open, and attach
   screenshots of the timings line, per CLAUDE.md.
 
