@@ -43,7 +43,9 @@ same local runtime as `labrador ask`; see [Asking questions](asking.md) for setu
 - The sources come first, each linking to the file at the right page, then any warnings (for example sources
   dropped to fit the context), then the answer as it streams in.
 - The status line underneath shows the same checks as the terminal: verified citations, MRZ check digits and a
-  confidence level.
+  confidence level. Under it a muted line shows the timings, for example
+  `retrieval 0.21 s · answer 4.8 s · first token 1.2 s · 38 tok/s · 3,480 → 182 tokens`; it first shows the
+  retrieval time alone, then fills in once the answer is done. A cut-off answer adds a warning line.
 - IDs and other long codes show masked (`•••••02C3`). Click one to show it and click again to hide it.
 
 Switching back to Search cancels an answer in progress and runs a fresh search for the text in the box.
