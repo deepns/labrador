@@ -6,7 +6,7 @@
 `run` loads the embedder once (like `labrador serve`), times its load and first embed, then asks every question with a
 `Trace`, scores it with the same `_qa_row` as `eval --answers` and writes `<out>/<tag>.json`: the config, the load
 times, and per question its row, `timings` and span `tree`. Takes the LLM flags of `ask` (`--model`, `--llm-url`,
-`--ctx`, `-k`) plus `--extra` (JSON merged over `llm_extra`). `summary` prints one table row per run JSON (quality
+`--ctx`, `-k`) plus `--extra` (JSON merged over `llm_extra`), `--limit N` and `--out DIR`. `summary` prints one table row per run JSON (quality
 rates, p50/p95 of the stages, p50 of the runtime numbers) and a wall-time share per stage. Outputs go in `evals/out/`.
 """
 import argparse
