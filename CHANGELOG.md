@@ -5,6 +5,8 @@ Notable changes to labrador, newest first. Phases (P0–P7, D1–D4) are rows of
 
 ## Unreleased
 
+- `scripts/ask_bench.py` times `ask` per stage over a QA file and compares runs; see
+  [Timing `ask`](docs/usage/evaluating.md#timing-ask).
 - O1: `ask` prints a timings line to stderr (retrieval, answer, first token, tok/s, prompt → completion tokens)
   and `ask --json` gains `timings`; `search` prints `N results in X s` to stderr. Streaming requests now send
   `stream_options: {"include_usage": true}` so the runtime reports token counts. See
