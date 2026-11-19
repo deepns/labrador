@@ -138,7 +138,7 @@ These are the instrumentation points. Each is a `with trace.span(...)` around co
 | `keywords` | `answer.ask()`: the first `store.keyword(kw)` + `rarest_term()`, which run *before* the `while True` loop (a sibling of `attempt`); and again, inside the attempt, around the retry's `rarest_term()` after `check()` | `n_hits`, `fallback` |
 | `retrieve` | `answer.retrieve()` | — |
 | `matrix` | `search()`, `store.matrix()` | `cache_hit`, `n_units` |
-| `lock_wait` | `web.py`, acquiring `model_lock`: in `LockedEmbedder` (ask) and in `_search` (`/api/search`) | — |
+| `lock_wait` | `web.py`, acquiring `model_lock`: in `LockedEmbedder` (ask, O2) and in `_search` (`/api/search`, O3) | — |
 | `embed_query` | `search()`, `emb.embed_query()` | — |
 | `dense` | `search()`, matmul + per-modality z-score + argsort | `pool` |
 | `keyword` | `search()`, `store.keyword()` | `n_hits` |
@@ -155,7 +155,8 @@ These are the instrumentation points. Each is a `with trace.span(...)` around co
 `lock_wait` is recorded in two places, because the two routes take `model_lock` differently. `api_ask` builds a
 `LockedEmbedder` per request, which locks only around `embed_*` calls; it takes the request's trace and times the
 acquire. `_search` holds `model_lock` itself around the whole `search()` call (matrix, dense and enrich included);
-it times the `with model_lock:` acquire directly, before `search()` opens its own spans.
+it times the `with model_lock:` acquire directly, before `search()` opens its own spans. `/api/search` has no
+trace until O3, so its half lands there with `Server-Timing`.
 
 ### Generation details
 
@@ -245,7 +246,7 @@ All on `FakeEmbedder` and `FakeLLM`, so no model download:
   become `rt_*` attributes.
 - CLI: the default metrics line is on stderr and omits `null` metrics; `--trace` prints the tree; `ask --json`
   carries `timings`.
-- Web (`tests/test_web.py`): `done.timings` present; `Server-Timing` present only with `--trace` and contains only
+- Web (`tests/test_web_ask.py`, `tests/test_web.py`): `done.timings` and `sources.retrieval_ms` present; `Server-Timing` present only with `--trace` and contains only
   `SPANS` names.
 - Manual (O2): `labrador serve` on `~/labrador-sample`, ask in the browser with the console open, and attach
   screenshots of the timings line, per CLAUDE.md.
@@ -286,5 +287,5 @@ Each row is one PR, within about 400 changed lines, with its tests and doc updat
 |---|---|---|---|---|
 | O1 | `trace.py`; spans in `search()`, `answer.ask()`, `llm.stream()/complete()` incl. `include_usage` and `cut_off`; `FakeLLM` usage; CLI default metrics line for `ask` and `search`; `ask --json` `timings`; tests; `usage/asking.md` and `usage/searching.md` | | ~300 | done |
 | O2 | Web: `retrieval_ms` on `sources`, `timings` on `done`, the line in `app.js`; `LockedEmbedder` `lock_wait`; `tests/test_web.py`; `usage/web-ui.md` | O1 | ~150 | done |
-| O3 | `--trace` for `ask`, `search` and `serve` (text tree, `done.trace`, `Server-Timing`); `eval --answers` timings and p50/p95; `reference/cli.md` | O1, O2 | ~200 | not started |
+| O3 | `--trace` for `ask`, `search` and `serve` (text tree, `done.trace`, `Server-Timing`, `_search` `lock_wait`); `eval --answers` timings and p50/p95; `reference/cli.md` | O1, O2 | ~200 | not started |
 | O4 | Indexing timings ([#27](https://github.com/deepns/labrador/issues/27)) | O1 | ~100 | deferred |
