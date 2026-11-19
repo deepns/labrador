@@ -4,6 +4,7 @@ serves only files that are in the index.
 `POST /api/ask` (JSON body, application/json only) streams answer.ask() events as NDJSON, one per line. The server
 masks identifiers (the `done` event's unverified tokens too) and sends each as {"mask", "raw"}; the page shows `mask`
 and swaps in `raw` on click, so masking rules live only in answer.py. The model_lock covers retrieval, never generation.
+The `sources` event carries `retrieval_ms` and `done` carries `timings` (see docs/design/observability.md).
 
 A pure-ASGI middleware adds the browser protections: Host allow-list (blocks DNS rebinding), Origin check on
 unsafe methods (blocks cross-site POSTs), and CSP / nosniff / no-referrer / no-store headers on every response.
@@ -36,6 +37,7 @@ from starlette.staticfiles import StaticFiles
 from .answer import ask, mask_text
 from .config import Settings
 from .search import search
+from .trace import NOOP, Trace
 
 STATIC = Path(__file__).parent / "static"
 
@@ -85,8 +87,8 @@ class LockedEmbedder:
     """Takes the lock around each embedding call. ask() interleaves retrieval and generation (and retries by
     retrieving again), so the lock can't wrap the whole generator: a slow answer would block every search."""
 
-    def __init__(self, emb, lock):
-        self._emb, self._lock = emb, lock
+    def __init__(self, emb, lock, trace=NOOP):
+        self._emb, self._lock, self._trace = emb, lock, trace
 
     def __getattr__(self, name):
         attr = getattr(self._emb, name)
@@ -94,8 +96,12 @@ class LockedEmbedder:
             return attr
 
         def locked(*a, **kw):
-            with self._lock:
+            with self._trace.span("lock_wait"):            # only the wait, not the embedding call
+                self._lock.acquire()
+            try:
                 return attr(*a, **kw)
+            finally:
+                self._lock.release()
         return locked
 
 
@@ -156,7 +162,8 @@ def create_app(store, emb, allowed_hosts=None, llm=None, settings=None):
         k = max(1, min(k, 20))
         s = dataclasses.replace(settings, ask_sources=k, ask_search_k=max(settings.ask_search_k, k),
                                 ask_images=2 if images else 0)
-        events = ask(store, LockedEmbedder(emb, model_lock), llm, q.strip(), s, reveal=False)
+        trace = Trace()
+        events = ask(store, LockedEmbedder(emb, model_lock, trace), llm, q.strip(), s, reveal=False, trace=trace)
         return StreamingResponse(_ndjson(events), media_type="application/x-ndjson")
 
     async def api_stats(_):

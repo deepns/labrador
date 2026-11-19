@@ -1,6 +1,6 @@
 # Design: timings for search and ask
 
-Status: **O1 done; O2 to O4 not started** (see [Rollout](#rollout)). Research: [reports/Observability for retrieval and generation.md](../../reports/Observability%20for%20retrieval%20and%20generation.md).
+Status: **O1 and O2 done; O3 and O4 not started** (see [Rollout](#rollout)). Research: [reports/Observability for retrieval and generation.md](../../reports/Observability%20for%20retrieval%20and%20generation.md).
 
 When an answer takes eight seconds, labrador can't say where the time went today. This design adds timings to
 `labrador search` and `labrador ask`, in the CLI and in the web UI. A few top-level numbers show on every answer:
@@ -285,6 +285,6 @@ Each row is one PR, within about 400 changed lines, with its tests and doc updat
 | Phase | Scope | Needs | Est. lines | Status |
 |---|---|---|---|---|
 | O1 | `trace.py`; spans in `search()`, `answer.ask()`, `llm.stream()/complete()` incl. `include_usage` and `cut_off`; `FakeLLM` usage; CLI default metrics line for `ask` and `search`; `ask --json` `timings`; tests; `usage/asking.md` and `usage/searching.md` | | ~300 | done |
-| O2 | Web: `retrieval_ms` on `sources`, `timings` on `done`, the line in `app.js`; `LockedEmbedder` `lock_wait`; `tests/test_web.py`; `usage/web-ui.md` | O1 | ~150 | not started |
+| O2 | Web: `retrieval_ms` on `sources`, `timings` on `done`, the line in `app.js`; `LockedEmbedder` `lock_wait`; `tests/test_web.py`; `usage/web-ui.md` | O1 | ~150 | done |
 | O3 | `--trace` for `ask`, `search` and `serve` (text tree, `done.trace`, `Server-Timing`); `eval --answers` timings and p50/p95; `reference/cli.md` | O1, O2 | ~200 | not started |
 | O4 | Indexing timings ([#27](https://github.com/deepns/labrador/issues/27)) | O1 | ~100 | deferred |
