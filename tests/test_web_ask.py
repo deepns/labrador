@@ -116,7 +116,7 @@ def test_cross_origin_post_refused(env):
 
 def test_k_is_clamped_and_applied(env, monkeypatch):
     seen = []
-    monkeypatch.setattr("labrador.web.ask", lambda store, emb, llm, q, s, reveal, trace: seen.append(s) or iter([]))
+    monkeypatch.setattr("labrador.web.ask", lambda store, emb, llm, q, s, reveal, trace, include_tree: seen.append(s) or iter([]))
     c = client(env, FakeLLM(), settings=Settings(ask_search_k=10, ask_sources=5))
     for body in ({}, {"k": 0}, {"k": 3}, {"k": 99}):
         c.post("/api/ask", json={"q": "x", **body})
@@ -193,3 +193,10 @@ def test_locked_embedder_records_lock_wait_span():
     lock = threading.Lock()
     assert LockedEmbedder(Emb(), lock, tr).embed_query("x") == [1.0]
     assert [c["name"] for c in tr.tree()["children"]] == ["lock_wait"] and not lock.locked()
+
+
+def test_done_trace_only_with_serve_trace(env):
+    _, ev = ask(client(env, FakeLLM(["The number is fine [1]."])))
+    assert "trace" not in ev[-1]
+    _, ev = ask(client(env, FakeLLM(["The number is fine [1]."]), show_trace=True))
+    assert {c["name"] for c in ev[-1]["trace"]["children"]} >= {"keywords", "attempt"}

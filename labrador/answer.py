@@ -357,7 +357,7 @@ def _delta(seg) -> dict:
 
 # ------------------------------------------------------------------ the pipeline
 def ask(store: Store, emb: Embedder, llm: LLM, question: str, settings: Settings, reveal: bool = False,
-        json_mode: bool = False, trace=NOOP) -> Iterator[dict]:
+        json_mode: bool = False, trace=NOOP, include_tree: bool = False) -> Iterator[dict]:
     kw, tried = keywords(question), False
     with trace.span("keywords"):
         n_hits = len(store.keyword(kw))
@@ -425,5 +425,7 @@ def ask(store: Store, emb: Embedder, llm: LLM, question: str, settings: Settings
             ev = {"type": "done", "check": asdict(result), "retried": retried}
             if trace is not NOOP:
                 ev["timings"] = trace.summary()
+                if include_tree:                           # --trace: the span tree (numbers only) for the web devtools
+                    ev["trace"] = trace.tree()
             yield ev
             return

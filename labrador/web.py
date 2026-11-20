@@ -5,6 +5,7 @@ serves only files that are in the index.
 masks identifiers (the `done` event's unverified tokens too) and sends each as {"mask", "raw"}; the page shows `mask`
 and swaps in `raw` on click, so masking rules live only in answer.py. The model_lock covers retrieval, never generation.
 The `sources` event carries `retrieval_ms` and `done` carries `timings` (see docs/design/observability.md).
+With `show_trace` (`serve --trace`) `done` also carries `trace` and `/api/search` sends a `Server-Timing` header.
 
 A pure-ASGI middleware adds the browser protections: Host allow-list (blocks DNS rebinding), Origin check on
 unsafe methods (blocks cross-site POSTs), and CSP / nosniff / no-referrer / no-store headers on every response.
@@ -122,13 +123,18 @@ def _ndjson(events):
         yield json.dumps({"type": "error", "message": "Something went wrong while answering."}) + "\n"
 
 
-def create_app(store, emb, allowed_hosts=None, llm=None, settings=None):
+def create_app(store, emb, allowed_hosts=None, llm=None, settings=None, show_trace: bool = False):
     model_lock = threading.Lock()   # one model, one inference at a time (MPS isn't re-entrant)
     settings = settings or Settings()
 
     def _search(q, k, only):
-        with model_lock:
-            return [h.to_dict() for h in search(store, emb, q, k=k, only=only)]
+        t = Trace() if show_trace else NOOP
+        with t.span("lock_wait"):                       # only the wait; the lock stays held for the search itself
+            model_lock.acquire()
+        try:
+            return [h.to_dict() for h in search(store, emb, q, k=k, only=only, trace=t)], t
+        finally:
+            model_lock.release()
 
     async def index(_):
         return HTMLResponse((STATIC / "index.html").read_text())
@@ -139,7 +145,11 @@ def create_app(store, emb, allowed_hosts=None, llm=None, settings=None):
             return JSONResponse([])
         k = min(int(req.query_params.get("k", 24)), 100)
         only = req.query_params.get("only") or None
-        return JSONResponse(await run_in_threadpool(_search, q, k, only))
+        hits, t = await run_in_threadpool(_search, q, k, only)
+        headers = {}
+        if show_trace:                                  # --trace: every span in walk order, names from SPANS only
+            headers["server-timing"] = ", ".join(f"{n['name']};dur={n['ms']}" for n in t.walk())
+        return JSONResponse(hits, headers=headers)
 
     async def api_ask(req):
         if req.headers.get("content-type", "").split(";")[0].strip().lower() != "application/json":
@@ -163,7 +173,8 @@ def create_app(store, emb, allowed_hosts=None, llm=None, settings=None):
         s = dataclasses.replace(settings, ask_sources=k, ask_search_k=max(settings.ask_search_k, k),
                                 ask_images=2 if images else 0)
         trace = Trace()
-        events = ask(store, LockedEmbedder(emb, model_lock, trace), llm, q.strip(), s, reveal=False, trace=trace)
+        events = ask(store, LockedEmbedder(emb, model_lock, trace), llm, q.strip(), s, reveal=False, trace=trace,
+                     include_tree=show_trace)
         return StreamingResponse(_ndjson(events), media_type="application/x-ndjson")
 
     async def api_stats(_):

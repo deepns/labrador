@@ -347,7 +347,7 @@ def test_ask_spans_and_forced_retry(env):
     sm = t.summary()
     assert sm["attempts"] == 2 and sm["cut_off"] is False and sm["completion_tokens"] > 0 and sm["prompt_tokens"] > 0
     assert sm["ttft_ms"] is None and sm["tok_s"] is None
-    timed = [n for n in t._walk() if n["name"] in ("keywords", "retrieve", "pack")]
+    timed = [n for n in t.walk() if n["name"] in ("keywords", "retrieve", "pack")]
     assert len(timed) == 6 and sm["retrieval_ms"] == round(sum(n["ms"] for n in timed), 1)
 
 
@@ -367,3 +367,11 @@ def test_matrix_cache_hit_attr(env):
         t = Trace()
         search(store, emb, "passport", trace=t)
         assert t.tree()["children"][0]["attrs"]["cache_hit"] is hit
+
+
+def test_include_tree_adds_trace_to_done_only_when_asked(env):
+    done = lambda **kw: run(env, ["Number L898902C3 [1]."], trace=Trace(), **kw)[0][-1]
+    assert "trace" not in done()
+    t = done(include_tree=True)["trace"]
+    assert t["name"] == "trace" and "attempt" in [c["name"] for c in t["children"]]
+    assert "trace" not in run(env, ["Number L898902C3 [1]."], include_tree=True)[0][-1]    # NOOP: nothing to show

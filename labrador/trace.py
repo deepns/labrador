@@ -50,17 +50,17 @@ class Trace:
     def set(self, **attrs):
         self._stack[-1]["attrs"].update(_attrs(attrs))
 
-    def _walk(self, node=None):
+    def walk(self, node=None):
         node = node or self.root
         for c in node["children"]:
             yield c
-            yield from self._walk(c)
+            yield from self.walk(c)
 
     def tree(self) -> dict:
         return {**self.root, "ms": _ms(self.end - self.t0)}
 
     def summary(self) -> dict:
-        nodes = list(self._walk())
+        nodes = list(self.walk())
         def total(*names):
             return round(sum(n["ms"] for n in nodes if n["name"] in names), 1)
         gens = [n for n in nodes if n["name"] == "generate"]

@@ -107,6 +107,10 @@ number. The row fields are in `bench/make_bench.py`'s docstring.
 | `hit@5` | The right file was among the sources (separates retrieval misses from model misses) |
 | `sec/q` | Seconds per question |
 
+Under the table, `timings (ALL)` shows the p50 and p95 (nearest rank) of `retrieval_ms`, `answer_ms`, `ttft_ms` and
+`tok_s` over the questions that have a value (`-` when none do; `ttft_ms` and `tok_s` need a runtime that reports
+them). The `--out` file has the same numbers in `summary` (`retrieval_ms_p50`, ...) and each row's `timings`.
+
 Scoring is deterministic and needs no LLM judge. It scores the streamed answer, the path `ask` shows. An LLM error
 counts as a refusal on that row, and the command exits 1 at the end. The `--out` file also records the model, URL,
 options and context size. [evals/answers/REPORT.md](../../evals/answers/REPORT.md) compares the default model

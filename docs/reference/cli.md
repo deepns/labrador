@@ -42,6 +42,7 @@ search the index
 | `-k` | int | `10` |  |
 | `--only` | `text`, `image`, `pdf`, `visual` |  |  |
 | `--json` | flag |  |  |
+| `--trace` | flag |  | also print the per-stage timing tree on stderr |
 
 ## labrador ask
 
@@ -65,6 +66,7 @@ answer a question from your files with a local LLM
 | `--ctx` | positive int |  | prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH |
 | `--allow-remote-llm` | flag |  | skip the loopback check (sends files off-machine) |
 | `--images` | flag |  | attach the original picture of the top image/PDF-page sources (needs a vision model) |
+| `--trace` | flag |  | also print the per-stage timing tree on stderr (--json: add it as "trace") |
 
 ## labrador serve
 
@@ -86,6 +88,7 @@ web UI
 | `--llm-extra` | text |  | JSON object passed to the runtime, merged over the default keep_alive |
 | `--ctx` | positive int |  | prompt budget in tokens; match OLLAMA_CONTEXT_LENGTH |
 | `--allow-remote-llm` | flag |  | skip the loopback check (sends files off-machine) |
+| `--trace` | flag |  | add the span tree to /api/ask's done event and a Server-Timing header to /api/search |
 
 ## labrador watch
 

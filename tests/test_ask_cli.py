@@ -213,3 +213,27 @@ def test_search_prints_count_on_stderr(folder, capsys):
     out = capsys.readouterr()
     assert isinstance(json.loads(out.out), list) and out.err.strip().endswith(" s") and " in " in out.err
     assert out.err.startswith("1 result in ")
+
+
+def test_ask_trace_prints_tree_on_stderr(folder, capsys):
+    code, out, err = run_ask(capsys, "passport number", "--llm-url", "fake", "--trace")
+    assert code == 0 and "retrieve" in err and "generate" in err and "embed_query" in err
+    assert "retrieve" not in out and "ms  " not in out                # stdout is still just the answer
+    assert "retrieve" not in run_ask(capsys, "passport number", "--llm-url", "fake")[2]
+
+
+def test_ask_json_trace_only_with_flag(folder, capsys, monkeypatch):
+    use_llm(monkeypatch, FakeLLM(['{"found": true, "answer": "x", "citations": [1], "quote": ""}'] * 2))
+    t = json.loads(run_ask(capsys, "passport number", "--json", "--trace")[1])["trace"]
+    assert t["name"] == "trace" and {c["name"] for c in t["children"]} >= {"keywords", "attempt"}
+    assert "trace" not in json.loads(run_ask(capsys, "passport number", "--json")[1])
+
+
+def test_search_trace_prints_tree_on_stderr(folder, capsys):
+    capsys.readouterr()
+    cli.main(["search", "passport", "--json", "--trace"])
+    out = capsys.readouterr()
+    assert isinstance(json.loads(out.out), list)
+    assert "matrix" in out.err and "embed_query" in out.err and "collapse" in out.err
+    cli.main(["search", "passport"])
+    assert "embed_query" not in capsys.readouterr().err
