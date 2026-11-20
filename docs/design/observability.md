@@ -46,7 +46,7 @@ The web UI shows the same line, in muted text, under the answer's status line.
 
 ### With `--trace`
 
-`ask --trace` and `search --trace` also print the span tree on stderr (for `ask`, also when the ask fails, since that is when
+`ask --trace` and `search --trace` also print the span tree on stderr (for `ask` without `--json`, also when the ask fails, since that is when
 it helps most):
 
 ```
@@ -136,7 +136,7 @@ These are the instrumentation points. Each is a `with trace.span(...)` around co
 | Span | Module, code | Attributes |
 |---|---|---|
 | `attempt` | `answer.ask()`, each pass of `while True` | `n` (1 or 2) |
-| `keywords` | `answer.ask()`: the first `store.keyword(kw)` + `rarest_term()`, which run *before* the `while True` loop (a sibling of `attempt`); and again, inside the attempt, around the retry's `rarest_term()` after `check()` | `n_hits`, `fallback` |
+| `keywords` | `answer.ask()`: the first `store.keyword(kw)` + `rarest_term()`, which run *before* the `while True` loop (a sibling of `attempt`); and again, inside the attempt, around the retry's `rarest_term()` after `check()` | `n_hits`, `fallback` (in the retry's span: 1 when a retry follows) |
 | `retrieve` | `answer.retrieve()` | — |
 | `matrix` | `search()`, `store.matrix()` | `cache_hit`, `n_units` |
 | `lock_wait` | `web.py`, acquiring `model_lock`: in `LockedEmbedder` (ask, O2) and in `_search` (`/api/search`, O3) | — |
