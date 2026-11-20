@@ -203,15 +203,16 @@ the sources next to every answer, and the verbatim checks.
 `POST /api/ask` takes `{"q": "...", "k": 5, "images": false}` and returns `application/x-ndjson`:
 
 ```
-{"type":"sources","sources":[{"n":1,"file_id":12,"rel_path":"documents/passport-scan.jpg","page":null,"kind":"photo OCR","modified":"2025-04-02","truncated":false,"picture":true}],"warnings":[]}
+{"type":"sources","sources":[{"n":1,"file_id":12,"rel_path":"documents/passport-scan.jpg","page":null,"kind":"photo OCR","modified":"2025-04-02","truncated":false,"picture":true}],"warnings":[],"retrieval_ms":212}
 {"type":"delta","text":"Your passport number is "}
 {"type":"delta","mask":"•••••02C3","raw":"…"}
-{"type":"done","check":{"citations":[1],"unverified":[],"mrz":"valid","confidence":"high","refused":false},"retried":false}
+{"type":"done","check":{"citations":[1],"unverified":[],"mrz":"valid","confidence":"high","refused":false},"retried":false,"timings":{…}}
 ```
 
 The server masks identifiers before sending. A masked `delta` carries `mask` and `raw` (as above), and each entry of
 `done.check.unverified` is either a plain string or a segment `{"mask": "•••••02C4", "raw": "L898902C4"}`. The page
-shows `mask` and swaps in `raw` on click, so the masking rules exist only in Python.
+shows `mask` and swaps in `raw` on click, so the masking rules exist only in Python. `retrieval_ms` and `timings`
+hold only numbers; [observability.md](observability.md#web-protocol) defines them.
 
 Retrieval holds `model_lock`, because MPS is not re-entrant. Generation doesn't hold it, so a slow answer never
 blocks searches. Nothing from the model reaches `innerHTML`.
@@ -227,6 +228,9 @@ blocks searches. Nothing from the model reaches `innerHTML`.
 | `ask_search_k` / `ask_sources` | `10` / `5` | `--k` |
 | `source_tokens` / `context_tokens` | `1500` / `4096` | `--ctx`; set it to match `OLLAMA_CONTEXT_LENGTH` |
 | `allow_remote_llm` | `False` | `--allow-remote-llm` |
+
+The generation caps (`llm_deadline_s`, `llm_max_tokens`) and the picture settings (`ask_images`, `ask_image_px`,
+`ask_image_tokens`) are in the [configuration reference](../reference/configuration.md#local-llm-answers).
 
 Models by Mac RAM, all 4-bit:
 

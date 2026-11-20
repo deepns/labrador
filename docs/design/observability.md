@@ -5,7 +5,7 @@ Status: **O1 and O2 done; O3 and O4 not started** (see [Rollout](#rollout)). Res
 When an answer takes eight seconds, labrador can't say where the time went today. This design adds timings to
 `labrador search` and `labrador ask`, in the CLI and in the web UI. A few top-level numbers show on every answer:
 how long retrieval took, how long the answer took, the time to first token, tokens per second and token counts. A
-per-stage breakdown appears with `--trace`. A ~50-line recorder, `trace.py`, holds the timings in memory for the length of one
+per-stage breakdown appears with `--trace`. A small recorder, `trace.py` (about 100 lines), holds the timings in memory for the length of one
 request. Nothing is written to disk and no new dependency is added.
 
 ## Goals

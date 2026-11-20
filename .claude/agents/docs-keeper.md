@@ -30,7 +30,10 @@ Only use Bash for read-only git commands (`git diff`, `git log`, `git show`) and
 | `labrador/search.py`, `labrador/store.py` | README diagram and "Reading the code", `docs/usage/searching.md` |
 | `labrador/answer.py`, `labrador/llm.py` | `docs/usage/asking.md`, current-behaviour sections of `docs/design/ask.md` |
 | `labrador/web.py`, `labrador/static/` | `docs/usage/web-ui.md`, `docs/security-privacy.md` (headers, CSP, network) |
-| `labrador/indexer.py`, `labrador/watch.py` | `docs/usage/indexing.md` |
+| `labrador/indexer.py`, `labrador/watch.py` | `docs/usage/indexing.md`, README "Reading the code" |
+| `labrador/trace.py` | `docs/design/observability.md`, timings in `docs/usage/{asking,searching,web-ui}.md` |
+| `scripts/ask_bench.py` | `docs/usage/evaluating.md#timing-ask` |
+| `scripts/gen_cli_reference.py` | `docs/reference/cli.md` (regenerate, don't hand-edit) |
 | `pyproject.toml` (extras, entry points) | `docs/installation.md`, README "Try it" |
 | any module | its own docstring; CLAUDE.md "Pipeline" and "Invariants" |
 
