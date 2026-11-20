@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import ipaddress
 import json
+import math
 import re
 import shutil
 import sys
@@ -22,7 +23,7 @@ import time
 from pathlib import Path
 
 from .config import HOME, Settings, index_dir_for
-from .trace import Trace
+from .trace import NOOP, Trace
 
 
 def _settings(a) -> Settings:
@@ -114,10 +115,13 @@ def cmd_index(a):
 def cmd_search(a):
     from .search import search
     store, emb, _ = _open(a)
+    trace = Trace() if a.trace else NOOP
     t0 = time.perf_counter()
-    hits = search(store, emb, a.query, k=a.k, only=a.only)
+    hits = search(store, emb, a.query, k=a.k, only=a.only, trace=trace)
     sys.stdout.flush()
     print(f"{len(hits)} result{'s' * (len(hits) != 1)} in {time.perf_counter() - t0:.2f} s", file=sys.stderr)
+    if a.trace:
+        print(trace.render(), file=sys.stderr)
     if a.json:
         print(json.dumps([h.to_dict() for h in hits], indent=2))
         return
@@ -166,8 +170,8 @@ def _mask_check(c: dict, reveal: bool) -> tuple[dict, bool]:
     return {**c, "unverified": toks}, any(not isinstance(x, str) for s in segs for x in s)
 
 
-def _collect_ask(events, reveal: bool, trace=None) -> int:
-    """`ask --json`: print one JSON object (sources, warnings, final answer, check, retried, timings). Returns the exit code."""
+def _collect_ask(events, reveal: bool, trace=None, show_trace: bool = False) -> int:
+    """`ask --json`: print one JSON object (sources, warnings, final answer, check, retried, timings, and the span tree with --trace). Returns the exit code."""
     out = {"sources": [], "warnings": [], "answer": "", "check": None, "retried": False}
     for e in events:
         if e["type"] == "sources":
@@ -182,6 +186,8 @@ def _collect_ask(events, reveal: bool, trace=None) -> int:
             out["retried"] = e["retried"]
     if trace:
         out["timings"] = trace.summary()
+    if show_trace:
+        out["trace"] = trace.tree()
     print(json.dumps(out, ensure_ascii=False, indent=2))
     return 0
 
@@ -254,7 +260,7 @@ def cmd_ask(a):
     trace = Trace()
     events = ask(store, emb, llm, a.question, s, a.reveal, a.json, trace=trace)
     if a.json:
-        sys.exit(_collect_ask(events, a.reveal, trace))
+        sys.exit(_collect_ask(events, a.reveal, trace, a.trace))
     code = _render_ask(events, a.reveal)
     if code == 0:                                   # the generator has finished, so the trace is complete
         sm = trace.summary()
@@ -263,6 +269,9 @@ def cmd_ask(a):
             print(line, file=sys.stderr)
         if sm["cut_off"]:
             print(f"the answer was cut off at llm_max_tokens ({s.llm_max_tokens})", file=sys.stderr)
+    if a.trace:                                     # on failure too: that is when the tree helps most
+        sys.stdout.flush()
+        print(trace.render(), file=sys.stderr)
     sys.exit(code)
 
 
@@ -307,7 +316,7 @@ def cmd_serve(a):
     if hasattr(llm, "models"):
         _warn_cloud_models(llm)
     print(f"Open http://{a.host}:{a.port}")
-    uvicorn.run(create_app(store, emb, allowed, llm, s), host=a.host, port=a.port, log_level="warning")
+    uvicorn.run(create_app(store, emb, allowed, llm, s, show_trace=a.trace), host=a.host, port=a.port, log_level="warning")
 
 
 def cmd_watch(a):
@@ -342,6 +351,15 @@ def _qa_row(r, sources, text, check, retried, secs) -> dict:
             "answer_text": text, "sources": sources, "cited": cited}
 
 
+def _pct(vals: list, p: int):
+    """Nearest-rank percentile (the smallest value with at least p% of the values at or below it); None for no values."""
+    vals = sorted(vals)
+    return vals[max(math.ceil(p / 100 * len(vals)) - 1, 0)] if vals else None
+
+
+TIMING_KEYS = ("retrieval_ms", "answer_ms", "ttft_ms", "tok_s")
+
+
 def _qa_rates(rs) -> dict:
     """Each rate is over the rows where it applies (None when none do)."""
     def rate(key, rows):
@@ -351,7 +369,9 @@ def _qa_rates(rs) -> dict:
     return {"n": len(rs), "em": rate("em", a), "cite_hit": rate("cite_hit", a),
             "cite_prec": sum(cp) / len(cp) if cp else None, "false_ans": rate("false_answer", rs),
             "false_ref": rate("false_refusal", a), "unverif": rate("unverified", rs),
-            "hit@5": rate("hit5", a), "errors": sum(bool(x["error"]) for x in rs), "sec/q": sum(x["seconds"] for x in rs) / len(rs) if rs else None}
+            "hit@5": rate("hit5", a), "errors": sum(bool(x["error"]) for x in rs), "sec/q": sum(x["seconds"] for x in rs) / len(rs) if rs else None,
+            **{f"{k}_p{p}": _pct([x["timings"][k] for x in rs if x.get("timings", {}).get(k) is not None], p)
+               for k in TIMING_KEYS for p in (50, 95)}}
 
 
 def cmd_eval_answers(a):
@@ -369,8 +389,9 @@ def cmd_eval_answers(a):
     results = []
     for r in rows:
         t0, sources, text, check, retried, err = time.perf_counter(), [], "", {}, False, None
+        trace = Trace()
         # Score the streamed text path (json_mode=False): Ollama's MLX runner returns 501 for structured output.
-        for ev in ask(store, emb, llm, r["question"], s, reveal=True):
+        for ev in ask(store, emb, llm, r["question"], s, reveal=True, trace=trace):
             if ev["type"] == "error":
                 err, check = ev["message"], {"refused": True, "citations": [], "unverified": [], "confidence": "error"}
                 break
@@ -380,7 +401,8 @@ def cmd_eval_answers(a):
                 text += ev.get("text") or ev.get("raw") or ""
             elif ev["type"] == "done":
                 check, retried = ev["check"], ev["retried"]
-        res = {**_qa_row(r, sources, text, check, retried, time.perf_counter() - t0), "error": err}
+        res = {**_qa_row(r, sources, text, check, retried, time.perf_counter() - t0), "error": err,
+               "timings": trace.summary()}
         results.append(res)
         if not a.quiet:
             good = (res["em"] if r.get("answerable", True) else True) and not res["false_answer"]
@@ -394,6 +416,9 @@ def cmd_eval_answers(a):
     summary = _qa_rates(results)
     for c, m in {**by_cat, "ALL": summary}.items():
         print(f"{c:<20} {m['n']:>3}  " + "  ".join(f"{f(m[k]):>9}" for k in cols) + f"  {m['sec/q'] or 0:>5.1f}")
+    print(f"\n{'timings (ALL)':<20} {'p50':>9}  {'p95':>9}")
+    for k in TIMING_KEYS:
+        print(f"{k:<20} {f(summary[k + '_p50']):>9}  {f(summary[k + '_p95']):>9}")
     if a.out:
         cfg = {"model": s.llm_model, "llm_url": s.llm_url, "llm_extra": s.llm_extra, "temperature": s.temperature,
                "context_tokens": s.context_tokens, "ask_sources": s.ask_sources, "ask_search_k": s.ask_search_k,
@@ -480,6 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("query"); sp.add_argument("-k", type=int, default=10)
     sp.add_argument("--only", choices=["text", "image", "pdf", "visual"])
     sp.add_argument("--json", action="store_true")
+    sp.add_argument("--trace", action="store_true", help="also print the per-stage timing tree on stderr")
     sp.set_defaults(fn=cmd_search)
 
     def llm_flags(sp):
@@ -496,12 +522,14 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("-k", "--k", dest="sources", type=_positive_int, help="sources to give the model (default: 5)")
     llm_flags(sp)
     sp.add_argument("--images", action="store_true", help="attach the original picture of the top image/PDF-page sources (needs a vision model)")
+    sp.add_argument("--trace", action="store_true", help="also print the per-stage timing tree on stderr (--json: add it as \"trace\")")
     sp.set_defaults(fn=cmd_ask)
 
     sp = sub.add_parser("serve", help="web UI"); common(sp)
     sp.add_argument("--host", default="127.0.0.1"); sp.add_argument("--port", type=int, default=8765)
     sp.add_argument("--allow-lan", action="store_true", help="allow a non-loopback --host (exposes the index)")
     llm_flags(sp)
+    sp.add_argument("--trace", action="store_true", help="add the span tree to /api/ask's done event and a Server-Timing header to /api/search")
     sp.set_defaults(fn=cmd_serve)
 
     sp = sub.add_parser("watch", help="index, then re-index files as they change"); common(sp, True)

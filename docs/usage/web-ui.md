@@ -50,6 +50,11 @@ same local runtime as `labrador ask`; see [Asking questions](asking.md) for setu
 
 Switching back to Search cancels an answer in progress and runs a fresh search for the text in the box.
 
+`serve --trace` adds timings for debugging. `/api/search` responses carry a `Server-Timing` header with one entry per
+stage, starting with `lock_wait`, the wait for the model lock. Your browser's devtools show it in the Timing tab of the
+Network panel. The `done` line of `/api/ask` carries the full span tree as `trace`. Without `--trace` neither is sent,
+and the page itself never shows them.
+
 `serve` takes the same LLM flags as `ask`:
 
 ```bash

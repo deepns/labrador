@@ -80,7 +80,7 @@ def _num(v):
 def _gen_attrs(usage, finish, timings) -> dict:
     """Numbers for the `generate` span from a response's usage, finish_reason and llama.cpp-style timings."""
     usage = usage if isinstance(usage, dict) else {}
-    rt = {f"rt_{k}": v for k, v in (timings if isinstance(timings, dict) else {}).items() if k.isidentifier() and _num(v) is not None}
+    rt = {f"rt_{k}": round(v, 2) for k, v in (timings if isinstance(timings, dict) else {}).items() if k.isidentifier() and _num(v) is not None}
     return {"prompt_tokens": _num(usage.get("prompt_tokens")), "completion_tokens": _num(usage.get("completion_tokens")),
             "cut_off": finish == "length", **rt}
 

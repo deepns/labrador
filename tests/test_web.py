@@ -108,3 +108,15 @@ def test_serve_hosts():
     assert cli._serve_hosts(ns("192.168.1.5", True)) == {"127.0.0.1", "localhost", "192.168.1.5"}
     with pytest.raises(SystemExit):
         cli._serve_hosts(ns("myhost.local"))
+
+
+def test_search_server_timing_only_with_trace(env):
+    from labrador.trace import SPANS
+    off = TestClient(create_app(*env), base_url="http://localhost").get("/api/search?q=lease")
+    assert "server-timing" not in off.headers
+    on = TestClient(create_app(*env, show_trace=True), base_url="http://localhost").get("/api/search?q=lease")
+    parts = on.headers["server-timing"].split(", ")
+    names = [e.split(";dur=")[0] for e in parts]
+    assert names[0] == "lock_wait" and "embed_query" in names and set(names) <= SPANS
+    assert all(float(e.split(";dur=")[1]) >= 0 for e in parts)
+    assert on.json() == off.json()

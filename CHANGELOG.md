@@ -13,6 +13,9 @@ Notable changes to labrador, newest first. Phases (P0–P7, D1–D4) are rows of
   [Reading the result](docs/usage/asking.md#reading-the-result) and [the design](docs/design/observability.md).
 - O2: the web UI's Ask mode shows the same timings line under the status line (`sources` events carry
   `retrieval_ms`, `done` carries `timings`). See [the design](docs/design/observability.md).
+- O3: `--trace` on `ask`, `search` and `serve` prints the per-stage span tree on stderr (`ask --json` adds `trace`; `ask --trace` prints it when the ask fails too, except with `--json`;
+  `serve` adds `Server-Timing` to `/api/search` and `trace` to `/api/ask`'s `done`). `eval --answers` rows gain
+  `timings` and the summary p50 / p95 of retrieval, answer, first-token time and tok/s.
 - LLM limits (#21): `ask`, Ask mode and `eval --answers` stop a generation after 300 s overall (`llm_deadline_s`,
   thinking included) and send `max_tokens: 2048` (`llm_max_tokens`), so a model that thinks without end no longer
   hangs them.

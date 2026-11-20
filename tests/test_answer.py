@@ -217,6 +217,28 @@ def test_trace_adds_timings_and_noop_leaves_events_unchanged(env):
         assert {k: v for k, v in b.items() if k not in ("retrieval_ms", "timings")} == a
 
 
+def test_done_trace_includes_final_attempt(env):
+    q = "what is the policy number"
+    events, _ = run(env, [REFUSAL, "Policy ZX9917342 [1]."], q=q, trace=Trace(), include_tree=True)
+    done = events[-1]
+    attempts = [c for c in done["trace"]["children"] if c["name"] == "attempt"]
+    assert len(attempts) == 2
+    for a in attempts:                                 # closed before `done` was built
+        assert a["ms"] > 0 and a["ms"] >= sum(c["ms"] for c in a["children"]) - 0.2
+    assert done["timings"]["total_ms"] >= attempts[-1]["ms"]
+
+
+def test_retry_keywords_fallback_only_when_retry_follows(env):
+    def retry_kw(trace):
+        return [n for n in trace.walk() if n["name"] == "keywords"][-1]["attrs"]["fallback"]
+    t = Trace()
+    run(env, [REFUSAL, "Policy ZX9917342 [1]."], q="what is the policy number", trace=t)
+    assert retry_kw(t) is True
+    t = Trace()                                        # refused, but rarest_term gives the same query: no retry
+    events, _ = run(env, [REFUSAL], q="zzzunknown", trace=t)
+    assert "retry" not in [e["type"] for e in events] and retry_kw(t) is False
+
+
 def test_json_mode(env):
     ok = '{"found": true, "answer": "Number L898902C3", "citations": [1], "quote": "Passport number L898902C3"}'
     assert run(env, [ok], json_mode=True)[0][-1]["check"]["confidence"] == "high"
@@ -347,7 +369,7 @@ def test_ask_spans_and_forced_retry(env):
     sm = t.summary()
     assert sm["attempts"] == 2 and sm["cut_off"] is False and sm["completion_tokens"] > 0 and sm["prompt_tokens"] > 0
     assert sm["ttft_ms"] is None and sm["tok_s"] is None
-    timed = [n for n in t._walk() if n["name"] in ("keywords", "retrieve", "pack")]
+    timed = [n for n in t.walk() if n["name"] in ("keywords", "retrieve", "pack")]
     assert len(timed) == 6 and sm["retrieval_ms"] == round(sum(n["ms"] for n in timed), 1)
 
 
@@ -367,3 +389,11 @@ def test_matrix_cache_hit_attr(env):
         t = Trace()
         search(store, emb, "passport", trace=t)
         assert t.tree()["children"][0]["attrs"]["cache_hit"] is hit
+
+
+def test_include_tree_adds_trace_to_done_only_when_asked(env):
+    done = lambda **kw: run(env, ["Number L898902C3 [1]."], trace=Trace(), **kw)[0][-1]
+    assert "trace" not in done()
+    t = done(include_tree=True)["trace"]
+    assert t["name"] == "trace" and "attempt" in [c["name"] for c in t["children"]]
+    assert "trace" not in run(env, ["Number L898902C3 [1]."], include_tree=True)[0][-1]    # NOOP: nothing to show

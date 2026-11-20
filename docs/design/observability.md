@@ -1,6 +1,6 @@
 # Design: timings for search and ask
 
-Status: **O1 and O2 done; O3 and O4 not started** (see [Rollout](#rollout)). Research: [reports/Observability for retrieval and generation.md](../../reports/Observability%20for%20retrieval%20and%20generation.md).
+Status: **O1 to O3 done; O4 deferred** (see [Rollout](#rollout)). Research: [reports/Observability for retrieval and generation.md](../../reports/Observability%20for%20retrieval%20and%20generation.md).
 
 When an answer takes eight seconds, labrador can't say where the time went today. This design adds timings to
 `labrador search` and `labrador ask`, in the CLI and in the web UI. A few top-level numbers show on every answer:
@@ -46,22 +46,23 @@ The web UI shows the same line, in muted text, under the answer's status line.
 
 ### With `--trace`
 
-`ask --trace` and `search --trace` also print the span tree on stderr:
+`ask --trace` and `search --trace` also print the span tree on stderr (for `ask` without `--json`, also when the ask fails, since that is when
+it helps most):
 
 ```
-trace                                   5021 ms
-  keywords                                  3 ms  n_hits=0 fallback=1
-  attempt 1                              5015 ms
-    retrieve                              205 ms
-      matrix                                1 ms  cache_hit=1 n_units=5120
-      embed_query                          41 ms
-      dense                                 3 ms  pool=300
-      keyword                               2 ms  n_hits=14
-      collapse                              4 ms  n_candidates=312 n_results=10
-      enrich                                9 ms  n_queries=10
-    pack                                    9 ms  n_sources=5 est_tokens=3100 n_truncated=0 n_dropped=1
-    generate                             4790 ms  headers_ms=310 first_chunk_ms=402 ttft_ms=1190 n_chunks=183
-    check                                   1 ms
+trace                                       5021 ms
+  keywords                                     3 ms  n_hits=0 fallback=1
+  attempt                                   5015 ms  n=1
+    retrieve                                 205 ms
+      matrix                                   1 ms  cache_hit=1 n_units=5120
+      embed_query                             41 ms
+      dense                                    3 ms  pool=300
+      keyword                                  2 ms  n_hits=14
+      collapse                                 4 ms  n_candidates=312 n_results=10
+      enrich                                   9 ms  n_queries=10
+    pack                                       9 ms  n_sources=5 est_tokens=3100 n_truncated=0 n_dropped=1
+    generate                                4790 ms  headers_ms=310.4 first_chunk_ms=402.1 ttft_ms=1190.3 n_chunks=183 prompt_tokens=3480 completion_tokens=182 cut_off=0
+    check                                      1 ms
 ```
 
 `labrador serve --trace` adds the same tree to the web responses (see [Web protocol](#web-protocol)).
@@ -75,7 +76,7 @@ trace                                   5021 ms
 | `total_ms` | Wall clock for the whole `ask()`, including `check` and retry bookkeeping. |
 | `ttft_ms` | From the start of the **final** attempt's `generate` to its first non-empty `delta.content`. `null` for `--json` (non-streamed). |
 | `prompt_tokens`, `completion_tokens` | From the final attempt's `usage` object, as the runtime reports it. `null` when the runtime doesn't send one. Never estimated. |
-| `tok_s` | `completion_tokens / (end − first content token)` of the final attempt: decode speed only, without prefill. If the runtime sends its own decode rate (llama.cpp's `timings.predicted_per_second`), that wins. `null` when either input is missing. |
+| `tok_s` | `completion_tokens / (end − first chunk)` of the final attempt (`ttft_ms` when there is no `first_chunk_ms`): decode speed only, without prefill. It starts at the first chunk, not the first content token, because a thinking model's reasoning tokens are in `completion_tokens` and stream before the first `content`. If the runtime sends its own decode rate (llama.cpp's `timings.predicted_per_second`), that wins. `null` when either input is missing. |
 | `cut_off` | The final attempt's `finish_reason == "length"`: the answer hit `llm_max_tokens`. |
 | `attempts` | 1, or 2 when the rarest-term retry ran. |
 
@@ -135,7 +136,7 @@ These are the instrumentation points. Each is a `with trace.span(...)` around co
 | Span | Module, code | Attributes |
 |---|---|---|
 | `attempt` | `answer.ask()`, each pass of `while True` | `n` (1 or 2) |
-| `keywords` | `answer.ask()`: the first `store.keyword(kw)` + `rarest_term()`, which run *before* the `while True` loop (a sibling of `attempt`); and again, inside the attempt, around the retry's `rarest_term()` after `check()` | `n_hits`, `fallback` |
+| `keywords` | `answer.ask()`: the first `store.keyword(kw)` + `rarest_term()`, which run *before* the `while True` loop (a sibling of `attempt`); and again, inside the attempt, around the retry's `rarest_term()` after `check()` | `n_hits`, `fallback` (in the retry's span: 1 when a retry follows) |
 | `retrieve` | `answer.retrieve()` | — |
 | `matrix` | `search()`, `store.matrix()` | `cache_hit`, `n_units` |
 | `lock_wait` | `web.py`, acquiring `model_lock`: in `LockedEmbedder` (ask, O2) and in `_search` (`/api/search`, O3) | — |
@@ -155,8 +156,8 @@ These are the instrumentation points. Each is a `with trace.span(...)` around co
 `lock_wait` is recorded in two places, because the two routes take `model_lock` differently. `api_ask` builds a
 `LockedEmbedder` per request, which locks only around `embed_*` calls; it takes the request's trace and times the
 acquire. `_search` holds `model_lock` itself around the whole `search()` call (matrix, dense and enrich included);
-it times the `with model_lock:` acquire directly, before `search()` opens its own spans. `/api/search` has no
-trace until O3, so its half lands there with `Server-Timing`.
+it times the acquire directly, before `search()` opens its own spans. `/api/search` records it only with
+`serve --trace`, and reports it in `Server-Timing`.
 
 ### Generation details
 
@@ -164,12 +165,13 @@ trace until O3, so its half lands there with `Server-Timing`.
 currently skips (`if not chunk.get("choices"): continue`). It records:
 
 - `headers_ms`: time until `client.stream()` returns. This is model load and queueing; a cold model after
-  `keep_alive` expires shows up here.
+  `keep_alive` expires shows up here. On Ollama the response headers arrive only after prefill, so `headers_ms`
+  includes prefill and `first_chunk_ms` follows almost at once (Ollama 0.40.16: `headers_ms` ≈ `rt_prompt_ms`).
 - `first_chunk_ms`: first `data:` line.
 - `ttft_ms`: first non-empty `delta.content`. A large gap after `first_chunk_ms` means the model is thinking:
   reasoning chunks carry no `content`.
 - `finish_reason` from the last choice chunk, giving `cut_off`.
-- `usage` and, if present, llama.cpp's `timings` object, copied as numbers. The code doesn't branch on the runtime's name.
+- `usage` and, if present, llama.cpp's `timings` object, copied as numbers (floats rounded to 2 decimals, so the `generate` line stays short). The code doesn't branch on the runtime's name.
 
 `complete()` reads `usage` and `finish_reason` from the single response body. It has no `ttft_ms`.
 
@@ -218,7 +220,7 @@ With `serve --trace`:
 - `done` also carries `"trace": {…tree…}`. The page doesn't render it; it is visible in the devtools Network panel.
 - `GET /api/search` responses carry a
   [`Server-Timing`](https://developer.mozilla.org/docs/Web/HTTP/Headers/Server-Timing) header, e.g.
-  `matrix;dur=1, embed_query;dur=41, dense;dur=3, keyword;dur=2, collapse;dur=4, enrich;dur=9`. Its names come
+  `lock_wait;dur=0, matrix;dur=1, embed_query;dur=41, dense;dur=3, keyword;dur=2, collapse;dur=4, enrich;dur=9`. Its names come
   only from `SPANS`. Without `--trace` the header is not sent.
 
 `/api/ask` gets no `Server-Timing`. Its headers go out before the work is done, and browsers don't surface
@@ -278,8 +280,14 @@ All on `FakeEmbedder` and `FakeLLM`, so no model download:
 - **`answer_ms` includes consumer time** (see [above](#streamed-spans-include-consumer-time)). Fine locally; worth
   knowing before comparing web and CLI numbers.
 - **`tok_s` excludes prefill** by definition. Runtimes that report a combined rate will differ; the trace keeps both.
-- **Overhead is assumed negligible.** About 15 `perf_counter` calls per request. Unmeasured: compare `eval` latency
-  with and without a trace in O1 to confirm.
+- **Overhead is negligible (measured).** About 2 µs per span. 50 warm in-process `search()` calls: median 35.09 ms
+  without a trace, 35.16 ms with one.
+- **The chars/4 budget undercounts (measured).** On qwen3.5:4b via Ollama, 4 questions on `~/labrador-sample`: pack's
+  `est_tokens` (sources only) was 0.39 to 0.51 of the runtime's `prompt_tokens`, and chars/4 of the whole prompt was
+  0.73 to 0.81, so the estimate undercounts by about 20 to 27%. The cause (chat template, tokenizer) isn't measured, and
+  whether `context_tokens` needs a margin is still open: a run on `bench/data/qa.jsonl` comparing the two would settle it.
+- **Not exercised live:** the retry (attempt 2) and `--json` paths. Ollama returns 501 for structured output on the MLX
+  runner, so `--json` was only checked against fakes.
 
 ## Rollout
 
@@ -289,5 +297,5 @@ Each row is one PR, within about 400 changed lines, with its tests and doc updat
 |---|---|---|---|---|
 | O1 | `trace.py`; spans in `search()`, `answer.ask()`, `llm.stream()/complete()` incl. `include_usage` and `cut_off`; `FakeLLM` usage; CLI default metrics line for `ask` and `search`; `ask --json` `timings`; tests; `usage/asking.md` and `usage/searching.md` | | ~300 | done |
 | O2 | Web: `retrieval_ms` on `sources`, `timings` on `done`, the line in `app.js`; `LockedEmbedder` `lock_wait`; `tests/test_web_ask.py`; `usage/web-ui.md` | O1 | ~150 | done |
-| O3 | `--trace` for `ask`, `search` and `serve` (text tree, `done.trace`, `Server-Timing`, `_search` `lock_wait`); `eval --answers` timings and p50/p95; `reference/cli.md` | O1, O2 | ~200 | not started |
+| O3 | `--trace` for `ask`, `search` and `serve` (text tree, `done.trace`, `Server-Timing`, `_search` `lock_wait`); `eval --answers` timings and p50/p95; `reference/cli.md` | O1, O2 | ~200 | done |
 | O4 | Indexing timings ([#27](https://github.com/deepns/labrador/issues/27)) | O1 | ~100 | deferred |

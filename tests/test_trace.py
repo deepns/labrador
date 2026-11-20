@@ -70,3 +70,12 @@ def test_summary_nulls_and_runtime_rate():
     t = Trace()
     _gen(t, 10.0, 50, rt_predicted_per_second=41.5)                    # the runtime's own rate wins
     assert t.summary()["tok_s"] == 41.5
+
+
+def test_tok_s_fallback_decodes_from_first_chunk():
+    t = Trace()                                        # a thinking model: first chunk at 100 ms, first content at 900 ms
+    _gen(t, 900.0, 45, first_chunk_ms=100.0)
+    assert t.summary()["tok_s"] == 50.0                # 45 tokens over (1000 - 100) ms, thinking tokens included
+    t = Trace()
+    _gen(t, 200.0, 40)                                 # no first_chunk_ms (complete()): falls back to ttft
+    assert t.summary()["tok_s"] == 50.0

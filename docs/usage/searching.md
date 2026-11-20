@@ -30,6 +30,7 @@ retrievers found it, then a snippet and, for pictures, the thumbnail's path (pat
 | `--index DIR` | last index | Search a different index |
 
 Stderr gets a count and the time, e.g. `12 results in 0.18 s`; `--json` stdout is unchanged.
+`--trace` adds the per-stage tree (`matrix`, `embed_query`, `dense`, `keyword`, `collapse`, `enrich`) on stderr.
 
 ## How ranking works
 

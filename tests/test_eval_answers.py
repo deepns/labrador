@@ -87,3 +87,19 @@ def test_llm_error_recorded_and_run_continues(setup):
     a, b = d["results"]
     assert a["error"] == "boom" and a["false_refusal"] and not a["false_answer"]
     assert b["error"] is None and b["refused"] and d["summary"]["errors"] == 1
+
+
+def test_rows_have_timings_and_summary_has_percentiles(setup, capsys):
+    d = run(setup, ["The number is L898902C3 [1].", "I couldn't find that in your files."])
+    assert all(r["timings"]["attempts"] == 1 for r in d["results"])
+    s = d["summary"]
+    for k in ("retrieval_ms", "answer_ms", "ttft_ms", "tok_s"):
+        assert f"{k}_p50" in s and f"{k}_p95" in s
+    assert s["retrieval_ms_p50"] <= s["retrieval_ms_p95"] and s["ttft_ms_p50"] is None    # FakeLLM has no ttft
+    assert "timings (ALL)" in capsys.readouterr().out
+
+
+def test_pct_nearest_rank():
+    from labrador.cli import _pct
+    assert _pct([], 50) is None and _pct([5], 95) == 5
+    assert _pct([4, 1, 3, 2], 50) == 2 and _pct([4, 1, 3, 2], 95) == 4
