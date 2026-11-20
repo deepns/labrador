@@ -284,8 +284,8 @@ All on `FakeEmbedder` and `FakeLLM`, so no model download:
   without a trace, 35.16 ms with one.
 - **The chars/4 budget undercounts (measured).** On qwen3.5:4b via Ollama, 4 questions on `~/labrador-sample`: pack's
   `est_tokens` (sources only) was 0.39 to 0.51 of the runtime's `prompt_tokens`, and chars/4 of the whole prompt was
-  0.73 to 0.81, so the estimate undercounts by about 20 to 27%. The gap is the template and system prompt plus the
-  tokenizer. Unfixed here; a safety margin in the budget is the follow-up.
+  0.73 to 0.81, so the estimate undercounts by about 20 to 27%. The cause (chat template, tokenizer) isn't measured, and
+  whether `context_tokens` needs a margin is still open: a run on `bench/data/qa.jsonl` comparing the two would settle it.
 - **Not exercised live:** the retry (attempt 2) and `--json` paths. Ollama returns 501 for structured output on the MLX
   runner, so `--json` was only checked against fakes.
 
