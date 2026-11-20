@@ -155,8 +155,8 @@ These are the instrumentation points. Each is a `with trace.span(...)` around co
 `lock_wait` is recorded in two places, because the two routes take `model_lock` differently. `api_ask` builds a
 `LockedEmbedder` per request, which locks only around `embed_*` calls; it takes the request's trace and times the
 acquire. `_search` holds `model_lock` itself around the whole `search()` call (matrix, dense and enrich included);
-it times the `with model_lock:` acquire directly, before `search()` opens its own spans. `/api/search` has no
-trace until O3, so its half lands there with `Server-Timing`.
+it times the acquire directly, before `search()` opens its own spans. `/api/search` records it only with
+`serve --trace`, and reports it in `Server-Timing`.
 
 ### Generation details
 
@@ -218,7 +218,7 @@ With `serve --trace`:
 - `done` also carries `"trace": {…tree…}`. The page doesn't render it; it is visible in the devtools Network panel.
 - `GET /api/search` responses carry a
   [`Server-Timing`](https://developer.mozilla.org/docs/Web/HTTP/Headers/Server-Timing) header, e.g.
-  `matrix;dur=1, embed_query;dur=41, dense;dur=3, keyword;dur=2, collapse;dur=4, enrich;dur=9`. Its names come
+  `lock_wait;dur=0, matrix;dur=1, embed_query;dur=41, dense;dur=3, keyword;dur=2, collapse;dur=4, enrich;dur=9`. Its names come
   only from `SPANS`. Without `--trace` the header is not sent.
 
 `/api/ask` gets no `Server-Timing`. Its headers go out before the work is done, and browsers don't surface
