@@ -59,4 +59,7 @@ Each module's docstring explains its stage of the pipeline:
 - `search.py`: each modality is z-scored against itself (the modality gap), BM25 catches exact strings, and
   Reciprocal Rank Fusion combines them.
 - `store.py`: SQLite + numpy brute force. 100k vectors × 768 dims is ~300 MB and a few ms per query on M-series.
+- `indexer.py` and `watch.py`: walk the folder, extract, embed and store, incrementally; `watch` re-indexes files
+  a couple of seconds after they stop changing.
 - `answer.py` and `llm.py`: retrieve, pack, generate, check and mask for `labrador ask`.
+- `trace.py`: in-memory timings for one `search` or `ask` request; nothing is written to disk.

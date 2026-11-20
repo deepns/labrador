@@ -42,7 +42,8 @@ sensitive as the files themselves.
 
 `labrador serve` binds to `127.0.0.1`. In `labrador/web.py`:
 
-- **Host allow-list.** Only `127.0.0.1` and `localhost` are accepted, which blocks DNS rebinding.
+- **Host allow-list.** Only `127.0.0.1`, `localhost` and the `--host` you served on are accepted, which blocks DNS
+  rebinding. With `--allow-lan` on a wildcard host (`0.0.0.0` or `::`) the check is off, and `serve` says so.
 - **Origin check.** A POST (such as `/reveal/{fid}`, which opens a file or shows it in Finder) whose `Origin`
   doesn't match the Host is refused, so another website can't trigger it. A request with no `Origin` header, like
   `curl`, is allowed.
