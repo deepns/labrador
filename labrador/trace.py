@@ -67,8 +67,9 @@ class Trace:
         g = gens[-1]["attrs"] if gens else {}
         ttft, toks = g.get("ttft_ms"), g.get("completion_tokens")
         tok_s = g.get("rt_predicted_per_second")
-        if tok_s is None and toks is not None and ttft is not None and gens[-1]["ms"] > ttft:
-            tok_s = toks / ((gens[-1]["ms"] - ttft) / 1000)         # decode only: without prefill
+        start = g.get("first_chunk_ms", ttft)                       # completion tokens (thinking too) stream from the first chunk
+        if tok_s is None and toks is not None and start is not None and gens[-1]["ms"] > start:
+            tok_s = toks / ((gens[-1]["ms"] - start) / 1000)        # decode only: without prefill
         return {"retrieval_ms": total("keywords", "retrieve", "pack"), "answer_ms": total("generate"),
                 "total_ms": _ms(self.end - self.t0), "ttft_ms": ttft,
                 "prompt_tokens": g.get("prompt_tokens"), "completion_tokens": toks,

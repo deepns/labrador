@@ -264,6 +264,9 @@ def test_stream_records_usage_and_timings():
     assert all(a[k] is not None for k in ("headers_ms", "first_chunk_ms", "ttft_ms"))
     s = t.summary()
     assert s["tok_s"] == 41.5 and s["cut_off"] is True and s["prompt_tokens"] == 120
+    from labrador.llm import _gen_attrs
+    assert _gen_attrs(None, None, {"prompt_ms": 1234.56789, "predicted_n": 7})["rt_prompt_ms"] == 1234.57
+    assert _gen_attrs(None, None, {"predicted_n": 7})["rt_predicted_n"] == 7      # ints stay ints
     over = make(handler)
     over.extra = {"stream_options": None}
     list(over.stream(MSGS))

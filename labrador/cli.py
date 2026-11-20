@@ -269,8 +269,9 @@ def cmd_ask(a):
             print(line, file=sys.stderr)
         if sm["cut_off"]:
             print(f"the answer was cut off at llm_max_tokens ({s.llm_max_tokens})", file=sys.stderr)
-        if a.trace:
-            print(trace.render(), file=sys.stderr)
+    if a.trace:                                     # on failure too: that is when the tree helps most
+        sys.stdout.flush()
+        print(trace.render(), file=sys.stderr)
     sys.exit(code)
 
 

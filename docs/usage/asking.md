@@ -62,7 +62,7 @@ with `--llm-extra`).
   runtime doesn't report is left out. If the answer hit `llm_max_tokens`, a line says so. `--json` carries the same
   numbers (in milliseconds, `null` when unknown) under `timings`.
 - **`--trace`** also prints the span tree on stderr, one line per stage (`keywords`, `retrieve`, `pack`, `generate`,
-  `check`) with its time and a few counts, so you can see where a slow answer spent its time. With `--json` the
+  `check`) with its time and a few counts, so you can see where a slow answer spent its time. It prints when the ask fails too (LLM down, timeout). With `--json` the
   tree is added to the object as `trace`. It holds only numbers and stage names, never your question or files.
 - **The status line** reports what labrador checked in code, not what the model claims: the cited sources exist, every
   ID and date in the answer appears verbatim in a cited source, and MRZ check digits on passports are valid.

@@ -116,6 +116,18 @@ def test_ask_llm_error_exits_1(folder, capsys, monkeypatch):
     assert code == 1 and "error: Can't reach the LLM server" in err and "verified" not in out
 
 
+def test_ask_trace_prints_tree_when_llm_fails(folder, capsys, monkeypatch):
+    class Down(FakeLLM):
+        def stream(self, messages, trace=None):
+            from labrador.llm import LLMError
+            raise LLMError("Can't reach the LLM server")
+            yield
+
+    use_llm(monkeypatch, Down())
+    code, out, err = run_ask(capsys, "passport number", "--trace")
+    assert code == 1 and "error: Can't reach the LLM server" in err and "attempt" in err and "retrieve" in err
+
+
 def test_ask_warns_on_cloud_model(folder, capsys, monkeypatch):
     class WithModels(FakeLLM):
         def models(self):
