@@ -80,7 +80,7 @@ trace                                   5021 ms
 | `attempts` | 1, or 2 when the rarest-term retry ran. |
 
 Metrics that are `null` are left out of the CLI and web line rather than shown as zero. When `cut_off` is true, the
-CLI and web add a warning: `the answer was cut off at llm_max_tokens (2048)`.
+CLI adds a warning, `the answer was cut off at llm_max_tokens (2048)`; the web line says the same without the number.
 
 Per-attempt values (ttft, tokens) describe the answer the user sees. Summed values (retrieval, answer) describe how
 long the user waited.
@@ -288,6 +288,6 @@ Each row is one PR, within about 400 changed lines, with its tests and doc updat
 | Phase | Scope | Needs | Est. lines | Status |
 |---|---|---|---|---|
 | O1 | `trace.py`; spans in `search()`, `answer.ask()`, `llm.stream()/complete()` incl. `include_usage` and `cut_off`; `FakeLLM` usage; CLI default metrics line for `ask` and `search`; `ask --json` `timings`; tests; `usage/asking.md` and `usage/searching.md` | | ~300 | done |
-| O2 | Web: `retrieval_ms` on `sources`, `timings` on `done`, the line in `app.js`; `LockedEmbedder` `lock_wait`; `tests/test_web.py`; `usage/web-ui.md` | O1 | ~150 | done |
+| O2 | Web: `retrieval_ms` on `sources`, `timings` on `done`, the line in `app.js`; `LockedEmbedder` `lock_wait`; `tests/test_web_ask.py`; `usage/web-ui.md` | O1 | ~150 | done |
 | O3 | `--trace` for `ask`, `search` and `serve` (text tree, `done.trace`, `Server-Timing`, `_search` `lock_wait`); `eval --answers` timings and p50/p95; `reference/cli.md` | O1, O2 | ~200 | not started |
 | O4 | Indexing timings ([#27](https://github.com/deepns/labrador/issues/27)) | O1 | ~100 | deferred |
